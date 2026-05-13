@@ -1,0 +1,499 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Steering Theater — walking the Fourier knot</title>
+<style>
+  :root {
+    --bg: #f5f1e8; --ink: #1a1a1a; --muted: #6b6657; --faint: #aba89a;
+    --rule: rgba(0,0,0,0.10); --accent: #c25540; --void: #c25540;
+    --src: #1a1a1a; --arc: #d6a843;
+    --panel: rgba(255,255,253,0.55);
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; min-height: 100vh; background: var(--bg); color: var(--ink);
+               font: 13px/1.55 -apple-system, "Inter", "Segoe UI", system-ui, sans-serif;
+               -webkit-font-smoothing: antialiased; }
+  h1, h2, h3 { margin: 0; font-weight: 600; letter-spacing: 0; }
+
+  .layout {
+    display: grid;
+    grid-template-columns: clamp(240px, 19vw, 310px) minmax(0, 1fr) clamp(240px, 19vw, 310px);
+    grid-template-rows: auto auto auto;
+    grid-template-areas:
+      "left   hero    right"
+      "ctrl   ctrl    ctrl"
+      "footer footer  footer";
+    column-gap: clamp(16px, 1.6vw, 28px);
+    row-gap: clamp(14px, 1.4vw, 22px);
+    padding: clamp(20px, 2vh, 32px) clamp(18px, 2vw, 36px);
+    max-width: min(1600px, 100vw);
+    margin: 0 auto;
+  }
+  .layout > * { min-width: 0; min-height: 0; }
+  @media (max-width: 900px) {
+    .layout {
+      grid-template-columns: 1fr;
+      grid-template-areas: "hero" "ctrl" "left" "right" "footer";
+    }
+  }
+
+  /* ---- LEFT ---- */
+  .left { grid-area: left; display: flex; flex-direction: column; gap: 16px; }
+  .title { font-size: 24px; line-height: 1.18; font-weight: 600; }
+  .title-meta { font-size: 12px; color: var(--muted); letter-spacing: 0.02em; }
+  .body-text { font-size: 12.5px; color: var(--muted); line-height: 1.6; }
+  .card { background: var(--panel); border: 1px solid var(--rule); border-radius: 8px; padding: 12px 14px; }
+  .card h3 { font-size: 12px; margin-bottom: 8px; }
+  .card .sub { color: var(--muted); font-weight: 400; font-size: 11px; margin-left: 6px; }
+  .legend { display: flex; flex-direction: column; gap: 6px; font-size: 11.5px; color: var(--muted); }
+  .legend-row { display: flex; align-items: center; gap: 10px; }
+  .legend-mark { width: 22px; display: inline-flex; justify-content: center; flex-shrink: 0; }
+  .sw-src { width: 12px; height: 12px; border-radius: 50%; border: 2px solid #1a1a1a; }
+  .sw-tgt { width: 12px; height: 12px; border-radius: 50%; border: 2px solid var(--accent); }
+  .sw-arc { width: 12px; height: 12px; border-radius: 50%; background: var(--arc); }
+  .sw-chord { width: 22px; height: 2px; background: var(--void); }
+
+  /* ---- HERO ---- */
+  .hero { grid-area: hero; position: relative;
+          height: clamp(500px, 68vh, 720px); }
+  @media (max-width: 900px) { .hero { height: clamp(380px, 56vh, 480px); } }
+  .hero-label { position: absolute; top: 12px; left: 50%; transform: translateX(-50%);
+                font-size: 12px; color: var(--muted); letter-spacing: 0.04em;
+                pointer-events: none; z-index: 2; }
+  .hero canvas { display: block; width: 100%; height: 100%; }
+
+  /* ---- RIGHT ---- */
+  .right { grid-area: right; display: flex; flex-direction: column; gap: 14px; }
+  .stat { display: flex; justify-content: space-between; align-items: baseline; padding: 5px 0; }
+  .stat-label { font-size: 11px; color: var(--faint); text-transform: uppercase; letter-spacing: 0.06em; }
+  .stat-value { font-size: 14px; font-weight: 600; color: var(--ink); font-variant-numeric: tabular-nums; }
+  .stat-value.accent { color: var(--accent); }
+  .stat-value.src { color: var(--src); }
+  .stat-row { border-top: 1px solid var(--rule); padding-top: 8px; margin-top: 6px; }
+  .stat-row:first-child { border-top: none; padding-top: 0; margin-top: 0; }
+  .ratio-bar { height: 5px; background: rgba(0,0,0,0.08); border-radius: 3px; overflow: hidden; margin-top: 6px; }
+  .ratio-fill { height: 100%; background: linear-gradient(90deg, var(--arc), var(--void)); transition: width 120ms ease; }
+
+  /* ---- CONTROLS ---- */
+  .controls { grid-area: ctrl; background: var(--panel); border: 1px solid var(--rule);
+              border-radius: 10px; padding: 14px 18px; }
+  .ctrl-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; align-items: end; }
+  @media (max-width: 700px) { .ctrl-grid { grid-template-columns: 1fr; } }
+  .ctrl-block { display: flex; flex-direction: column; gap: 6px; }
+  .ctrl-head { display: flex; justify-content: space-between; align-items: baseline; }
+  .ctrl-label { font-size: 11px; color: var(--faint); text-transform: uppercase; letter-spacing: 0.08em; }
+  .ctrl-current { font-size: 13px; font-weight: 600; color: var(--ink); font-variant-numeric: tabular-nums; }
+  .ctrl-current .small { color: var(--muted); font-weight: 400; font-size: 11px; margin-left: 4px; }
+  input[type=range] {
+    -webkit-appearance: none; appearance: none; background: transparent;
+    width: 100%; height: 22px; cursor: pointer; margin: 0;
+  }
+  input[type=range]::-webkit-slider-runnable-track {
+    height: 3px; background: rgba(0,0,0,0.18); border-radius: 2px;
+  }
+  input[type=range]::-moz-range-track {
+    height: 3px; background: rgba(0,0,0,0.18); border-radius: 2px;
+  }
+  input[type=range]::-webkit-slider-thumb {
+    -webkit-appearance: none; width: 16px; height: 16px; margin-top: -7px;
+    background: var(--ink); border: 2px solid var(--bg); border-radius: 50%; cursor: pointer;
+  }
+  input[type=range].delta::-webkit-slider-thumb { background: var(--accent); }
+  input[type=range]::-moz-range-thumb {
+    width: 16px; height: 16px; background: var(--ink);
+    border: 2px solid var(--bg); border-radius: 50%; cursor: pointer;
+  }
+  input[type=range].delta::-moz-range-thumb { background: var(--accent); }
+  .preset-row { display: flex; gap: 8px; margin-top: 8px; align-items: center; }
+  .preset-btn { background: rgba(0,0,0,0.05); border: 1px solid var(--rule);
+                color: var(--ink); padding: 5px 10px; border-radius: 4px;
+                font-size: 11px; cursor: pointer; font-variant-numeric: tabular-nums;
+                font-family: inherit; }
+  .preset-btn:hover { background: rgba(0,0,0,0.10); }
+  .ctrl-tip { font-size: 11px; color: var(--faint); margin-top: 10px; line-height: 1.5; }
+
+  /* ---- FOOTER ---- */
+  .footer { grid-area: footer; padding-top: 8px; border-top: 1px solid var(--rule);
+            font-size: 13px; color: var(--muted); font-style: italic; }
+
+  .formula-mini { font-family: "ui-serif", Georgia, serif; font-size: 12px;
+                  color: var(--muted); padding: 2px 0; }
+  .formula-mini i { color: var(--ink); }
+</style>
+</head>
+<body>
+
+<div class="layout">
+
+  <!-- LEFT -->
+  <div class="left">
+    <div>
+      <h1 class="title">Steering by walking the knot</h1>
+      <div class="title-meta" id="title-meta">mod-97 division · seed 1000 · post-grok W<sub>U</sub></div>
+    </div>
+    <div class="body-text">
+      Once the Lissajous structure crystallized, the model's algorithm <i>is</i> the curve.
+      To steer the prediction from class <span class="src-c">c</span> to a new class <span class="tgt-c">c'</span>,
+      the honest move is <b>along the manifold</b>: shift dlog by Δ, walk Δ beads along the curve.
+      The naive <b>linear steering vector</b> draws a straight chord — and for any non-trivial Δ,
+      that chord cuts straight through the empty interior of the cube, where the model has nothing to predict.
+    </div>
+
+    <div class="card">
+      <h3>Walk = dlog shift</h3>
+      <div class="formula-mini">
+        Δ ∈ ℤ<sub>96</sub>,&nbsp; <i>c'</i> = <i>c</i> · <i>g</i><sup>Δ</sup> mod <i>p</i><br>
+        <i>l'</i> = (<i>l</i> + Δ) mod 96<br>
+        new phase on K-circle: 2π·K·Δ/96
+      </div>
+    </div>
+
+    <div class="card">
+      <h3>Legend</h3>
+      <div class="legend">
+        <div class="legend-row"><span class="legend-mark"><span class="sw-src"></span></span>source class <i>c</i></div>
+        <div class="legend-row"><span class="legend-mark"><span class="sw-tgt"></span></span>steered target <i>c</i> · <i>g</i><sup>Δ</sup></div>
+        <div class="legend-row"><span class="legend-mark"><span class="sw-arc"></span></span>manifold walk (each step = real class)</div>
+        <div class="legend-row"><span class="legend-mark"><span class="sw-chord"></span></span>linear steering chord (through the void)</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- HERO -->
+  <div class="hero">
+    <div class="hero-label">W_U — final Lissajous knot · steering Δ</div>
+    <canvas id="hero-canvas"></canvas>
+  </div>
+
+  <!-- RIGHT -->
+  <div class="right">
+    <div class="card">
+      <h3>Source</h3>
+      <div class="stat"><span class="stat-label">class c</span><span class="stat-value src" id="r-src-c">—</span></div>
+      <div class="stat"><span class="stat-label">dlog l</span><span class="stat-value src" id="r-src-l">—</span></div>
+    </div>
+    <div class="card">
+      <h3>Steered</h3>
+      <div class="stat"><span class="stat-label">Δ</span><span class="stat-value accent" id="r-delta">0</span></div>
+      <div class="stat"><span class="stat-label">target c'</span><span class="stat-value accent" id="r-tgt-c">—</span></div>
+      <div class="stat"><span class="stat-label">dlog l'</span><span class="stat-value accent" id="r-tgt-l">—</span></div>
+    </div>
+    <div class="card">
+      <h3>Walk vs chord</h3>
+      <div class="stat"><span class="stat-label">walk steps</span><span class="stat-value" id="r-walk">0</span></div>
+      <div class="stat"><span class="stat-label">chord / max</span><span class="stat-value" id="r-chord">0%</span></div>
+      <div class="ratio-bar"><div class="ratio-fill" id="r-bar"></div></div>
+      <div style="font-size: 10.5px; color: var(--faint); margin-top: 8px; line-height: 1.5;">
+        Chord length grows toward the cube diameter as Δ approaches 48 (Nyquist).
+      </div>
+    </div>
+  </div>
+
+  <!-- CONTROLS -->
+  <div class="controls">
+    <div class="ctrl-grid">
+      <div class="ctrl-block">
+        <div class="ctrl-head">
+          <span class="ctrl-label">Source class · dlog index</span>
+          <span class="ctrl-current"><span id="c-src">5</span><span class="small">l=<span id="c-srcl">0</span></span></span>
+        </div>
+        <input id="src-slider" type="range" min="0" max="95" value="0" step="1">
+      </div>
+      <div class="ctrl-block">
+        <div class="ctrl-head">
+          <span class="ctrl-label">Steering Δ (dlog shift)</span>
+          <span class="ctrl-current" id="c-delta">0</span>
+        </div>
+        <input id="delta-slider" class="delta" type="range" min="-48" max="48" value="0" step="1">
+      </div>
+    </div>
+    <div class="preset-row">
+      <span style="font-size: 11px; color: var(--faint); letter-spacing: 0.05em; text-transform: uppercase;">Try Δ:</span>
+      <button class="preset-btn" data-delta="0">0</button>
+      <button class="preset-btn" data-delta="1">1</button>
+      <button class="preset-btn" data-delta="6">6</button>
+      <button class="preset-btn" data-delta="12">12</button>
+      <button class="preset-btn" data-delta="24">24</button>
+      <button class="preset-btn" data-delta="48">48 (Nyquist)</button>
+      <button class="preset-btn" data-delta="-12">−12</button>
+    </div>
+    <div class="ctrl-tip">
+      Drag in the 3D scene to rotate · scroll to zoom · the source ring is anchored, the coral
+      target ring jumps along the curve. The chord shows what the linear-steering vector would point to.
+    </div>
+  </div>
+
+  <!-- FOOTER -->
+  <div class="footer">
+    Steering is geometric translation along the learned manifold — not addition in vector space.
+  </div>
+
+</div>
+
+<script type="importmap">
+{
+  "imports": {
+    "three": "https://unpkg.com/three@0.158.0/build/three.module.js",
+    "three/addons/": "https://unpkg.com/three@0.158.0/examples/jsm/"
+  }
+}
+</script>
+
+<script type="module">
+import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+
+const DATA = {"config":{"K1":25,"K2":11,"R_xz":1.55,"R_y":1.45,"P":97,"PM1":96,"g":5,"seed":1000,"grok_step":650,"d_model":384},"positions":[[1.4405,1.3605,0.1557],[-0.0394,1.1575,1.4382],[-1.5012,0.1933,-0.3314],[0.3751,-0.8013,-1.6045],[1.5425,-1.4731,0.356],[-0.4456,-1.4401,1.5891],[-1.3393,-0.4708,-0.4997],[0.8387,0.7398,-1.2598],[1.2444,1.2573,0.8308],[-0.7713,1.3575,1.1996],[-1.2901,0.8178,-0.8495],[1.0652,-0.0902,-1.0801],[1.13,-0.9337,1.1145],[-1.1674,-1.5945,0.9918],[-1.0932,-1.1023,-1.3308],[1.299,-0.2686,-0.9678],[0.6187,0.8038,1.2252],[-1.1941,1.4641,0.7187],[-0.6692,1.3917,-1.64],[1.2879,0.6449,-0.4125],[0.4155,-0.3346,1.5604],[-1.6018,-1.412,0.1901],[-0.3934,-1.4086,-1.6089],[1.6639,-0.8124,-0.1333],[0.0862,0.0802,1.5466],[-1.6487,0.805,0.0092],[0.2315,1.3852,-1.4174],[1.4619,1.1508,0.2508],[-0.1593,0.3976,1.3512],[-1.3605,-0.5812,-0.486],[0.6548,-1.5784,-1.4227],[1.168,-1.1614,0.8976],[-1.0616,-0.5154,1.1886],[-1.3012,0.2931,-0.9904],[1.0996,1.1313,-1.0838],[1.2121,1.5453,1.0329],[-1.0986,0.9697,1.0172],[-0.9193,0.2565,-1.0273],[1.1113,-1.1416,-1.0207],[0.8787,-1.548,1.307],[-1.4408,-1.3285,0.7861],[-0.7705,-0.3516,-1.4061],[1.5028,0.4108,-0.7604],[0.7614,1.2644,1.5219],[-1.5286,1.401,0.509],[-0.4014,0.825,-1.3428],[1.5903,0.1395,-0.3137],[0.1189,-1.1374,1.3996],[-1.5443,-1.4914,-0.0483],[0.3524,-1.193,-1.6972],[1.8096,-0.0718,0.1221],[-0.3316,0.8472,1.2135],[-1.4265,1.5877,-0.4519],[0.6493,1.2351,-1.4775],[1.4834,0.51,0.5075],[-0.5416,-0.3081,1.3971],[-1.3916,-1.3452,-0.8817],[0.893,-1.5841,-1.245],[1.128,-0.832,0.9968],[-1.0401,0.2534,1.1698],[-1.2319,1.0236,-1.0001],[1.3093,1.28,-0.9356],[1.0552,1.249,1.199],[-1.235,0.275,0.8262],[-0.9221,-0.5801,-1.3158],[1.3369,-1.2985,-1.0729],[0.676,-1.6609,1.4557],[-1.5992,-0.6041,0.4954],[-0.5663,0.4211,-1.4322],[1.6714,1.0879,-0.3456],[0.2421,1.4582,1.5023],[-1.6965,0.9306,0.1059],[-0.0188,0.2181,-1.396],[1.4774,-0.9277,-0.0029],[-0.0491,-1.4633,1.3309],[-1.6675,-1.4101,-0.3248],[0.3451,-0.3795,-1.3473],[1.3991,0.6808,0.7318],[-0.7861,1.5016,1.3826],[-1.3015,1.2274,-0.4315],[0.58,0.5769,-1.1461],[1.3003,-0.1959,0.7444],[-0.9908,-1.2566,1.539],[-1.4366,-1.6579,-1.1157],[1.0536,-0.9476,-0.9527],[0.9764,0.0419,1.0977],[-1.2427,0.7728,1.0313],[-0.8731,1.4033,-1.3999],[1.2721,1.1544,-0.5804],[0.7725,0.5554,1.2665],[-1.3771,-0.7423,0.6837],[-0.4359,-1.7391,-1.3315],[1.4819,-1.4754,-0.2297],[0.4981,-0.5115,1.5367],[-1.4853,0.1311,0.324],[-0.1747,1.4959,-1.6961]],"ideal_pts":[[1.55,1.45,0.0],[-0.1014,1.0902,1.5467],[-1.5367,0.1893,-0.2023],[0.3024,-0.8056,-1.5202],[1.4972,-1.4006,0.4012],[-0.4982,-1.3005,1.4677],[-1.432,-0.5549,-0.5932],[0.6855,0.4661,-1.3902],[1.3423,1.2557,0.775],[-0.8611,1.4221,1.2888],[-1.2297,0.8827,-0.9436],[1.022,-0.0948,-1.1654],[1.096,-1.0253,1.096],[-1.1654,-1.4469,1.022],[-0.9436,-1.1504,-1.2297],[1.2888,-0.2829,-0.8611],[0.775,0.725,1.3423],[-1.3902,1.373,0.6855],[-0.5932,1.3396,-1.432],[1.4677,0.6413,-0.4982],[0.4012,-0.3753,1.4972],[-1.5202,-1.2056,0.3024],[-0.2023,-1.4376,-1.5367],[1.5467,-0.9561,-0.1014],[-0.0,-0.0,1.55],[-1.5467,0.9561,-0.1014],[0.2023,1.4376,-1.5367],[1.5202,1.2056,0.3024],[-0.4012,0.3753,1.4972],[-1.4677,-0.6413,-0.4982],[0.5932,-1.3396,-1.432],[1.3902,-1.373,0.6855],[-0.775,-0.725,1.3423],[-1.2888,0.2829,-0.8611],[0.9436,1.1504,-1.2297],[1.1654,1.4469,1.022],[-1.096,1.0253,1.096],[-1.022,0.0948,-1.1654],[1.2297,-0.8827,-0.9436],[0.8611,-1.4221,1.2888],[-1.3423,-1.2557,0.775],[-0.6855,-0.4661,-1.3902],[1.432,0.5549,-0.5932],[0.4982,1.3005,1.4677],[-1.4972,1.4006,0.4012],[-0.3024,0.8056,-1.5202],[1.5367,-0.1893,-0.2023],[0.1014,-1.0902,1.5467],[-1.55,-1.45,-0.0],[0.1014,-1.0902,-1.5467],[1.5367,-0.1893,0.2023],[-0.3024,0.8056,1.5202],[-1.4972,1.4006,-0.4012],[0.4982,1.3005,-1.4677],[1.432,0.5549,0.5932],[-0.6855,-0.4661,1.3902],[-1.3423,-1.2557,-0.775],[0.8611,-1.4221,-1.2888],[1.2297,-0.8827,0.9436],[-1.022,0.0948,1.1654],[-1.096,1.0253,-1.096],[1.1653,1.4469,-1.022],[0.9436,1.1504,1.2297],[-1.2888,0.2829,0.8611],[-0.775,-0.725,-1.3423],[1.3902,-1.373,-0.6855],[0.5932,-1.3396,1.432],[-1.4677,-0.6413,0.4982],[-0.4012,0.3753,-1.4972],[1.5202,1.2056,-0.3024],[0.2023,1.4376,1.5367],[-1.5467,0.9561,0.1014],[-0.0,0.0,-1.55],[1.5467,-0.956,0.1014],[-0.2023,-1.4376,1.5367],[-1.5202,-1.2056,-0.3024],[0.4012,-0.3753,-1.4972],[1.4677,0.6413,0.4982],[-0.5932,1.3396,1.432],[-1.3902,1.373,-0.6855],[0.775,0.725,-1.3423],[1.2888,-0.2829,0.8611],[-0.9436,-1.1504,1.2297],[-1.1654,-1.4469,-1.022],[1.096,-1.0253,-1.096],[1.022,-0.0948,1.1653],[-1.2297,0.8827,0.9436],[-0.8611,1.4221,-1.2888],[1.3423,1.2557,-0.775],[0.6855,0.4661,1.3902],[-1.432,-0.5549,0.5932],[-0.4982,-1.3005,-1.4677],[1.4972,-1.4006,-0.4012],[0.3024,-0.8056,1.5202],[-1.5367,0.1893,0.2023],[-0.1014,1.0902,-1.5467]],"g_pow":[1,5,25,28,43,21,8,40,6,30,53,71,64,29,48,46,36,83,27,38,93,77,94,82,22,13,65,34,73,74,79,7,35,78,2,10,50,56,86,42,16,80,12,60,9,45,31,58,96,92,72,69,54,76,89,57,91,67,44,26,33,68,49,51,61,14,70,59,4,20,3,15,75,84,32,63,24,23,18,90,62,19,95,87,47,41,11,55,81,17,85,37,88,52,66,39]};
+const cfg = DATA.config;
+const PM1 = cfg.PM1, P = cfg.P, K1 = cfg.K1, K2 = cfg.K2;
+const POS = DATA.positions;          // [96][3]  — final-state Lissajous beads
+const IDEAL = DATA.ideal_pts;        // [96][3]  — idealized reference
+const G_POW = DATA.g_pow;            // g_pow[l] = class for dlog l
+const BG = '#f5f1e8';
+const SRC_COLOR = 0x1a1a1a;
+const TGT_COLOR = 0xc25540;
+const ARC_COLOR = 0xd6a843;
+const CHORD_COLOR = 0xc25540;
+
+document.getElementById('title-meta').innerHTML =
+  `mod-${cfg.P} division · seed ${cfg.seed} · post-grok W<sub>U</sub> · K₁=${K1}, K₂=${K2}`;
+
+function hsvToRgb(h, s, v) {
+  const i = Math.floor(h * 6), f = h * 6 - i;
+  const p = v * (1 - s), q = v * (1 - f * s), t = v * (1 - (1 - f) * s);
+  switch (i % 6) {
+    case 0: return [v, t, p]; case 1: return [q, v, p]; case 2: return [p, v, t];
+    case 3: return [p, q, v]; case 4: return [t, p, v]; default: return [v, p, q];
+  }
+}
+
+// ============= SCENE SETUP =============
+const canvas = document.getElementById('hero-canvas');
+const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
+renderer.outputColorSpace = THREE.SRGBColorSpace;
+renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(BG);
+scene.fog = new THREE.Fog(BG, 4.0, 12);
+
+const cam = new THREE.PerspectiveCamera(42, 1, 0.1, 100);
+cam.position.set(3.4, 1.2, 3.4);
+cam.lookAt(0, 0, 0);
+
+const controls = new OrbitControls(cam, canvas);
+controls.enableDamping = true; controls.dampingFactor = 0.08;
+controls.minDistance = 1.6; controls.maxDistance = 7.0;
+controls.target.set(0, 0, 0);
+controls.autoRotate = true; controls.autoRotateSpeed = 0.5;
+
+scene.add(new THREE.AmbientLight(0xffffff, 0.55));
+const key = new THREE.DirectionalLight(0xfff5e1, 0.75); key.position.set(5, 7, 4); scene.add(key);
+const fill = new THREE.DirectionalLight(0xc8d4e3, 0.45); fill.position.set(-4, -2, 5); scene.add(fill);
+const rim = new THREE.DirectionalLight(0xffe4c4, 0.30); rim.position.set(0, 4, -6); scene.add(rim);
+
+function setSize() {
+  const w = canvas.clientWidth || canvas.parentElement.clientWidth;
+  const h = canvas.clientHeight || canvas.parentElement.clientHeight;
+  renderer.setSize(w, h, false);
+  cam.aspect = w / h; cam.updateProjectionMatrix();
+}
+setSize();
+new ResizeObserver(setSize).observe(canvas.parentElement);
+
+// ============= GHOST SCAFFOLD (idealized Lissajous) =============
+const idealVecs = IDEAL.map(p => new THREE.Vector3(p[0], p[1], p[2]));
+const scaffCurve = new THREE.CatmullRomCurve3(idealVecs, true, 'centripetal', 0.4);
+const scaffMat = new THREE.MeshStandardMaterial({
+  color: 0x8a9cb5, transparent: true, opacity: 0.10,
+  roughness: 0.75, metalness: 0.08, side: THREE.DoubleSide, depthWrite: false,
+});
+scene.add(new THREE.Mesh(new THREE.TubeGeometry(scaffCurve, 720, 0.010, 8, true), scaffMat));
+
+// ============= MAIN TUBE (faint actual W_U Lissajous) =============
+const posVecs = POS.map(p => new THREE.Vector3(p[0], p[1], p[2]));
+const mainCurve = new THREE.CatmullRomCurve3(posVecs, true, 'centripetal', 0.4);
+const tubeSeg = 768, radSeg = 12;
+const ringColor = new Float32Array((tubeSeg + 1) * 3);
+for (let i = 0; i <= tubeSeg; i++) {
+  const t = i / tubeSeg;
+  const [r_, g_, b_] = hsvToRgb(t, 0.45, 0.78);
+  ringColor[i*3] = r_; ringColor[i*3+1] = g_; ringColor[i*3+2] = b_;
+}
+const mainTubeGeom = new THREE.TubeGeometry(mainCurve, tubeSeg, 0.022, radSeg, true);
+const nv = (tubeSeg + 1) * (radSeg + 1);
+const tubeColors = new Float32Array(nv * 3);
+for (let i = 0; i <= tubeSeg; i++) {
+  for (let j = 0; j <= radSeg; j++) {
+    const k = (i * (radSeg + 1) + j) * 3;
+    tubeColors[k]   = ringColor[i*3];
+    tubeColors[k+1] = ringColor[i*3+1];
+    tubeColors[k+2] = ringColor[i*3+2];
+  }
+}
+mainTubeGeom.setAttribute('color', new THREE.BufferAttribute(tubeColors, 3));
+const mainTubeMat = new THREE.MeshStandardMaterial({
+  color: 0xffffff, transparent: true, opacity: 0.42,
+  roughness: 0.55, metalness: 0.20, side: THREE.DoubleSide, vertexColors: true,
+});
+scene.add(new THREE.Mesh(mainTubeGeom, mainTubeMat));
+
+// ============= BACKGROUND BEADS (all 96, faint, small) =============
+const bgGeom = new THREE.SphereGeometry(0.055, 14, 12);
+const bgMat = new THREE.MeshStandardMaterial({
+  color: 0xffffff, transparent: true, opacity: 0.55,
+  roughness: 0.5, metalness: 0.10,
+});
+const bgMesh = new THREE.InstancedMesh(bgGeom, bgMat, PM1);
+const tmpDummy = new THREE.Object3D();
+const tmpC = new THREE.Color();
+for (let l = 0; l < PM1; l++) {
+  const [r_, g_, b_] = hsvToRgb(l / PM1, 0.45, 0.78);
+  tmpC.setRGB(r_, g_, b_);
+  bgMesh.setColorAt(l, tmpC);
+  tmpDummy.position.set(POS[l][0], POS[l][1], POS[l][2]);
+  tmpDummy.scale.setScalar(1);
+  tmpDummy.updateMatrix();
+  bgMesh.setMatrixAt(l, tmpDummy.matrix);
+}
+bgMesh.instanceColor.needsUpdate = true;
+bgMesh.instanceMatrix.needsUpdate = true;
+scene.add(bgMesh);
+
+// ============= ARC HIGHLIGHT BEADS (intermediate dlog steps, count varies) =============
+const arcGeom = new THREE.SphereGeometry(0.085, 16, 12);
+const arcMat = new THREE.MeshStandardMaterial({
+  color: ARC_COLOR, emissive: 0x6e4d0a, emissiveIntensity: 0.25,
+  roughness: 0.4, metalness: 0.20,
+});
+const arcMesh = new THREE.InstancedMesh(arcGeom, arcMat, PM1);
+arcMesh.count = 0;
+scene.add(arcMesh);
+
+// ============= SOURCE / TARGET RINGS =============
+const ringGeomA = new THREE.TorusGeometry(0.16, 0.018, 16, 36);
+const ringGeomB = new THREE.TorusGeometry(0.16, 0.018, 16, 36);
+const srcMat = new THREE.MeshStandardMaterial({
+  color: SRC_COLOR, roughness: 0.4, metalness: 0.25,
+});
+const tgtMat = new THREE.MeshStandardMaterial({
+  color: TGT_COLOR, emissive: 0x6e1a10, emissiveIntensity: 0.35,
+  roughness: 0.4, metalness: 0.25,
+});
+const srcRing = new THREE.Mesh(ringGeomA, srcMat);
+const tgtRing = new THREE.Mesh(ringGeomB, tgtMat);
+scene.add(srcRing); scene.add(tgtRing);
+
+// also a solid bead at source/target (overlaid)
+const srcBead = new THREE.Mesh(new THREE.SphereGeometry(0.10, 18, 14), srcMat);
+const tgtBead = new THREE.Mesh(new THREE.SphereGeometry(0.10, 18, 14), tgtMat);
+scene.add(srcBead); scene.add(tgtBead);
+
+// ============= CHORD (straight 3D line, linear-steering vector) =============
+const chordMat = new THREE.MeshStandardMaterial({
+  color: CHORD_COLOR, transparent: true, opacity: 0.78,
+  roughness: 0.4, metalness: 0.20, side: THREE.DoubleSide,
+});
+let chordMesh = null;
+function rebuildChord(pSrc, pTgt) {
+  if (chordMesh) { scene.remove(chordMesh); chordMesh.geometry.dispose(); }
+  const a = new THREE.Vector3(pSrc[0], pSrc[1], pSrc[2]);
+  const b = new THREE.Vector3(pTgt[0], pTgt[1], pTgt[2]);
+  const len = a.distanceTo(b);
+  if (len < 0.02) return;
+  const dir = new THREE.Vector3().subVectors(b, a);
+  const mid = new THREE.Vector3().addVectors(a, b).multiplyScalar(0.5);
+  // use thin cylinder oriented along dir
+  const geom = new THREE.CylinderGeometry(0.012, 0.012, len, 14, 1, true);
+  chordMesh = new THREE.Mesh(geom, chordMat);
+  chordMesh.position.copy(mid);
+  // align Y axis of the cylinder with `dir`
+  const yAxis = new THREE.Vector3(0, 1, 0);
+  const q = new THREE.Quaternion().setFromUnitVectors(yAxis, dir.clone().normalize());
+  chordMesh.quaternion.copy(q);
+  scene.add(chordMesh);
+}
+
+// ============= UPDATE FUNCTION =============
+const MAX_CHORD = Math.sqrt(4 * cfg.R_xz * cfg.R_xz + 4 * cfg.R_y * cfg.R_y);  // cube diameter-ish
+
+function dlogShiftMod(l, d) { return ((l + d) % PM1 + PM1) % PM1; }
+
+function update(lSrc, delta) {
+  const lTgt = dlogShiftMod(lSrc, delta);
+  const pSrc = POS[lSrc];
+  const pTgt = POS[lTgt];
+
+  srcRing.position.set(pSrc[0], pSrc[1], pSrc[2]);
+  srcBead.position.set(pSrc[0], pSrc[1], pSrc[2]);
+  tgtRing.position.set(pTgt[0], pTgt[1], pTgt[2]);
+  tgtBead.position.set(pTgt[0], pTgt[1], pTgt[2]);
+
+  // arc beads: all dlog indices strictly between source and target along the walk
+  const step = delta >= 0 ? 1 : -1;
+  const n = Math.abs(delta) - 1;
+  arcMesh.count = Math.max(n, 0);
+  for (let i = 0; i < n; i++) {
+    const l = dlogShiftMod(lSrc, step * (i + 1));
+    const p = POS[l];
+    tmpDummy.position.set(p[0], p[1], p[2]);
+    tmpDummy.scale.setScalar(1);
+    tmpDummy.updateMatrix();
+    arcMesh.setMatrixAt(i, tmpDummy.matrix);
+  }
+  arcMesh.instanceMatrix.needsUpdate = true;
+
+  rebuildChord(pSrc, pTgt);
+
+  // readouts
+  const cSrc = G_POW[lSrc];
+  const cTgt = G_POW[lTgt];
+  const chordLen = Math.hypot(pTgt[0]-pSrc[0], pTgt[1]-pSrc[1], pTgt[2]-pSrc[2]);
+  document.getElementById('r-src-c').textContent = cSrc;
+  document.getElementById('r-src-l').textContent = lSrc;
+  document.getElementById('r-delta').textContent = (delta >= 0 ? '+' : '') + delta;
+  document.getElementById('r-tgt-c').textContent = cTgt;
+  document.getElementById('r-tgt-l').textContent = lTgt;
+  document.getElementById('r-walk').textContent = Math.abs(delta);
+  const ratio = Math.min(chordLen / MAX_CHORD, 1);
+  document.getElementById('r-chord').textContent = (ratio * 100).toFixed(0) + '%';
+  document.getElementById('r-bar').style.width = (ratio * 100).toFixed(0) + '%';
+
+  // bottom slider readouts
+  document.getElementById('c-src').textContent = cSrc;
+  document.getElementById('c-srcl').textContent = lSrc;
+  document.getElementById('c-delta').textContent = (delta >= 0 ? '+' : '') + delta;
+}
+
+// ============= UI =============
+const srcSlider = document.getElementById('src-slider');
+const deltaSlider = document.getElementById('delta-slider');
+function applyFromUI() {
+  const l = parseInt(srcSlider.value);
+  const d = parseInt(deltaSlider.value);
+  update(l, d);
+}
+srcSlider.addEventListener('input', applyFromUI);
+deltaSlider.addEventListener('input', applyFromUI);
+document.querySelectorAll('.preset-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    deltaSlider.value = btn.dataset.delta;
+    applyFromUI();
+  });
+});
+
+// initial state
+applyFromUI();
+
+// ============= RENDER LOOP =============
+function animate() {
+  requestAnimationFrame(animate);
+  controls.update();
+  renderer.render(scene, cam);
+}
+animate();
+</script>
+</body>
+</html>
