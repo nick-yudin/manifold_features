@@ -296,7 +296,7 @@
 
   <header class="title-block">
     <h1 class="title">Fourier Bloom</h1>
-    <p class="subtitle">A small transformer learns modular division by growing a 3D Fourier knot — and the knot <i>is</i> the algorithm.</p>
+    <p class="subtitle">A small transformer learns modular division by growing a 3D Fourier knot inside itself.</p>
     <p class="meta">
       <a href="https://github.com/nick-yudin">Nikolay Yudin</a>
       <span class="meta-sep">·</span>
@@ -307,42 +307,42 @@
   </header>
 
   <p class="lede">
-    Train a tiny transformer to compute <i>c = a · b<sup>−1</sup> mod 97</i> and something quietly remarkable happens.
-    The network doesn't memorize a 97 × 97 lookup table, even though it could.
-    Instead, it grows a precise geometric object inside itself — a Fourier knot in three dimensions — and reads
-    answers off that object. The knot is not a description of the algorithm; the knot <em>is</em> the algorithm.
+    Train a tiny transformer to compute <i>c = a · b<sup>−1</sup> mod 97</i> and you can watch how it learns.
+    The network has enough parameters to memorize a 97 × 97 lookup table, but it doesn't. What it does
+    instead is grow a Fourier knot in three dimensions and read answers off that knot. The knot turns
+    out to be the whole algorithm.
   </p>
 
   <p>
-    This note shows that bloom directly, with two interactive scenes you can scrub through.
-    The first watches the knot form during training, from random noise to a crystalline curve.
-    The second shows what that knot is good for: <i>steering</i> the network's prediction by walking
-    along the curve, rather than nudging it sideways.
+    Below are two interactive visualizations. The first lets you scrub through training and watch the
+    knot form from random noise. The second uses the knot to <i>steer</i> the network's predictions, by
+    walking along the curve rather than pushing sideways through it.
   </p>
 
   <p>
-    The setup is small enough to be honest. A two-block transformer with a 384-dimensional
-    residual stream, trained on division modulo 97. The 96 invertible remainders are the only
-    objects in the world the network needs to understand. The visualizations project the network's
-    unembedding matrix <code>W_U</code> — its final read-out — onto three of its own learned Fourier
-    directions. There is no rotation chosen for effect, no t-SNE, no PCA: every axis is a real
-    column-projection of <code>W_U</code>.
+    The setup is small. Two transformer blocks, residual dimension 384, trained to predict
+    <i>c = a · b<sup>−1</sup> mod 97</i>. There are 96 invertible remainders mod 97, and those are
+    the only outputs the network ever produces. The visualizations project the unembedding matrix
+    <code>W_U</code> (the layer that turns hidden states into logits) onto three of its own Fourier
+    directions. No t-SNE, no PCA, no axis chosen for effect: each axis is a column-projection of
+    <code>W_U</code> onto a real cosine or sine basis vector.
   </p>
 
   <h2>The bloom</h2>
 
   <p>
-    Press play. The first few hundred steps are noise — a uniform fog of points around the origin.
-    Then two Fourier modes ignite. They are not the same modes across seeds in detail, but they
-    play the same role: two integer harmonics <i>K₁</i> and <i>K₂</i> that together turn the 96
-    invertible remainders into beads on a Lissajous curve. The classes leave the origin together,
-    spread outward, and lock into a closed knot whose shape never changes again once training settles.
+    Press play. The first few hundred steps look like noise: a fog of points around the origin.
+    Then two Fourier modes take over. The exact two harmonics vary across seeds, but the role they
+    play is the same in every run. They are integer harmonics <i>K₁</i> and <i>K₂</i>, and together
+    they map the 96 invertible remainders onto beads of a Lissajous curve. The 96 points drift away
+    from the origin, spread out, and settle into a knot whose shape is stable for the rest of training.
   </p>
 
   <p>
-    The control on the right tells the same story negatively. <code>W_E</code>, the token embedding,
-    sees exactly the same training signal, but no Fourier role to play — and stays at its random
-    initialization. Structure forms only where the task needs it.
+    The small panel on the right shows <code>W_E</code>, the token embedding. It sees the same
+    gradient signal as <code>W_U</code>, but the algorithm gives it no Fourier role to play, and it
+    stays close to its random initialization throughout training. Structure forms where the task uses
+    it and not elsewhere.
   </p>
 
   <div class="embed">
@@ -357,44 +357,43 @@
   <h2>The algorithm lives in many places at once</h2>
 
   <p>
-    The knot in <code>W_U</code> is not the whole story. The same Fourier circles bloom simultaneously
-    in every part of the network whose job touches the algorithm — and conspicuously stay absent
-    everywhere else.
+    <code>W_U</code> is not the only place this happens. The same Fourier circles appear in every part
+    of the network that participates in the computation, and they do not appear in any part that doesn't.
   </p>
 
   <figure>
     <img src="multiloc_diffusion.png" alt="Five locations projected onto their own final Fourier-k=11 planes across training. FFN1-mid, residual stream, W_U, and W_E∘V all bloom into circles by the end of training. W_E (control) stays as random noise.">
     <figcaption>
-      <span class="lab">Fig. 2.</span> Five locations of the network projected onto their own
-      final Fourier-<i>k</i>=11 plane, at ten training checkpoints from left to right.
+      <span class="lab">Fig. 2.</span> Five locations in the network projected onto their respective
+      Fourier-<i>k</i>=11 planes, at ten training checkpoints (left to right).
       FFN1-mid activations (grouped by <i>l<sub>a</sub> − l<sub>b</sub></i>), the residual stream at
-      the eq position, and <code>W_U</code> all bloom from disordered scatter into clean circles.
-      <code>W_E∘V</code> reaches a partial circle. <code>W_E</code> itself — bottom row — never blooms.
-      The algorithm is the joint circle structure across the locations that participate in the
-      computation, and nothing more.
+      the eq position, and <code>W_U</code> each bloom from scatter to a clean circle.
+      <code>W_E∘V</code> reaches a partial circle. <code>W_E</code> (bottom row) never blooms.
+      The circle structure shared across these locations is the only object that matters for the
+      prediction.
     </figcaption>
   </figure>
 
   <p>
-    This matters because it tells us the bloom is not a quirk of one weight matrix. It is the
-    discrete signature of a single coherent computation distributed across the network's
-    feedforward layers, attention values, and unembedding — all bound to the same Fourier basis.
+    The bloom is not local to one weight matrix. The same Fourier basis is shared across the
+    feedforward layers, the attention values, and the unembedding, and the same K-mode structure
+    shows up in all of them. The algorithm is a property of that shared basis, not of any single
+    component.
   </p>
 
   <h2>The same algorithm, built by hand</h2>
 
   <p>
-    Because the algorithm is so geometric and so explicit, we can write it ourselves. Construct the
-    embedding so that each token carries the discrete logarithm of its remainder as a Fourier pair
-    <i>(cos K·l, sin K·l)</i>. Set the attention so that values from positions <i>a</i> and <i>b</i> arrive
-    at the prediction slot. Set the FFN1 neurons to compute the products that turn
-    <i>(cos K·l<sub>a</sub>, sin K·l<sub>a</sub>) · (cos K·l<sub>b</sub>, sin K·l<sub>b</sub>)</i>
-    into <i>cos K·(l<sub>a</sub> − l<sub>b</sub>)</i>. Set <code>W_U</code> to read those Fourier
-    coordinates into per-class logits.
+    Once the algorithm is this explicit, the next thing to try is to write it by hand. The recipe
+    has four steps. The embedding carries each token's discrete logarithm as a Fourier pair
+    <i>(cos K·l, sin K·l)</i>. The attention routes the values from positions <i>a</i> and
+    <i>b</i> into the prediction slot. The FFN1 multiplies the two Fourier pairs into
+    <i>cos K·(l<sub>a</sub> − l<sub>b</sub>)</i>. And <code>W_U</code> reads those coordinates out
+    as per-class logits.
   </p>
 
   <p>
-    No training. Just the algorithm, written into the weights.
+    There is no training step. Every weight is set by hand from the recipe above.
   </p>
 
   <div class="numbers">
@@ -413,18 +412,19 @@
   </div>
 
   <p>
-    The hand-built network solves the task at machine precision. This is the closest a mechanistic
-    interpretation can come to a proof: if the components we identified in the trained model are
-    enough to compute the task when written explicitly, then those components are not a description
-    of the algorithm. They are <em>sufficient</em> for it. The trained network and the hand-built
-    one are the same algorithm in two presentations — one noisy and redundant, one clean and minimal.
+    The hand-built network solves the task at machine precision. This is about as close to a
+    constructive proof as mechanistic interpretation gets: if you can hand-assemble a working model
+    from the components identified in the trained one, those components are not just a hypothesis
+    about how the trained model works — they are enough to run the task on their own. The trained
+    model and the hand-built model are doing the same computation in two different presentations:
+    one noisy and over-parameterized, the other minimal.
   </p>
 
   <div class="reproduce">
     <div class="head">Reproduce</div>
     <p>
       The hand-built weights and a 90-line verification script are in the repository.
-      No training required — load the weights, run through all 9,216 input pairs, see 100%:
+      No training required. Load the weights, run through all 9,216 input pairs, see 100%:
     </p>
 <pre><span class="comment"># clone the repo, then:</span>
 python verify_handcrafted.py
@@ -440,24 +440,26 @@ Running through 9216 (a, b) pairs...
   <h2>Steering by walking the knot</h2>
 
   <p>
-    If the algorithm <em>is</em> the knot, then changing the network's prediction is a geometric
-    operation. Want to push prediction from class <i>c</i> to class <i>c · g<sup>Δ</sup></i>?
-    Walk Δ beads along the knot. Each bead is a real class. The path stays on the curve. The network
-    follows.
+    If the algorithm lives on the knot, changing the network's prediction is a geometric move. To
+    shift the prediction from class <i>c</i> to class <i>c · g<sup>Δ</sup></i>, you can walk Δ beads
+    along the curve. Every position on that walk corresponds to a real class that the model already
+    represents, and the head reads the correct logit at each one.
   </p>
 
   <p>
-    The conventional approach — what activation-steering papers usually do — is to add a vector to
-    the hidden state that points from the source class to the target. On a curve, that vector is a
-    <em>chord</em> through the knot's interior. The interior is the empty middle of the cube,
-    where no class lives. For small Δ the chord stays close to the curve and the steering mostly
-    works. For Δ approaching 48 (the Nyquist), the chord cuts the cube along its full diameter,
-    passing through a region of the residual stream the model has no idea how to read.
+    The standard alternative, used in most activation-steering papers, is to add a single difference
+    vector to the hidden state: target class minus source class. On a curve, that vector is a
+    <em>chord</em> through the knot's interior. The interior of the cube contains no classes; it is
+    the region the model never produces during normal operation. For small Δ the chord stays close
+    to the curve and the steering still works most of the time. For Δ approaching 48 (the Nyquist),
+    the chord cuts straight across the cube and lands in a region of the residual stream the model
+    has no representation for.
   </p>
 
   <p>
-    The second scene lets you pick a Δ and watch the two paths side by side: the manifold walk
-    in colour, the linear chord as a faint line. The chord becomes obviously wrong as Δ grows.
+    The second visualization lets you pick a Δ and compare the two paths. The manifold walk is the
+    coloured arc; the linear chord is the faint straight line. As you increase Δ, the chord pulls
+    visibly further away from the curve.
   </p>
 
   <div class="embed">
@@ -470,50 +472,49 @@ Running through 9216 (a, b) pairs...
   </div>
 
   <p>
-    The price of cutting across the empty middle is measurable.
+    The cost of routing through the interior shows up in the hit rates.
   </p>
 
   <div class="numbers">
     <div class="row">
-      <span class="label">Dictation — replace hidden state with the manifold point at target Δ</span>
+      <span class="label">Dictation: replace hidden state with the manifold point at target Δ</span>
       <span class="val accent">100%</span>
     </div>
     <div class="row">
-      <span class="label">Walking — rotate hidden state along the K-mode Fourier circles by 2π·K·Δ/96</span>
+      <span class="label">Walking: rotate hidden state along the K-mode Fourier circles by 2π·K·Δ/96</span>
       <span class="val">96.7%</span>
     </div>
     <div class="row">
-      <span class="label">Linear chord — add the difference vector once, scaled to Δ</span>
+      <span class="label">Linear chord: add the difference vector once, scaled to Δ</span>
       <span class="val">≈ 50%</span>
     </div>
   </div>
 
   <p>
-    Dictation is the cleanest control: it puts the network's internal state directly onto the
-    target manifold point and asks the read-out head what class it sees. The head reports the
-    right one every time. Walking is the softer version that keeps everything else about the
-    hidden state intact and only adjusts the Fourier phases; it works on every requested Δ on
-    every one of ten independently trained seeds, with a mean hit rate of 96.7%. Linear chord
-    works half the time at best — and there is nothing to fix about its implementation. The
-    direction in residual space that takes one class to another is curved, not straight, and a
-    chord is the wrong object.
+    Dictation overwrites the hidden state with the manifold point at the target class and asks the
+    head to read it. The head reads the right class on every input. Walking is the gentler version:
+    it keeps the hidden state mostly intact and only rotates the Fourier phases by 2π·K·Δ/96. It
+    hits the requested class on every Δ across all ten seeds, with a mean hit rate of 96.7%. The
+    linear chord caps out around 50%, and there is no obvious tuning that fixes it; the curve the
+    model uses to represent class shifts is not a straight line, so a chord is the wrong object to
+    push along it.
   </p>
 
   <h2>What the knot means</h2>
 
   <p>
-    The bloom and the steering are two views of the same fact. A neural network solving a problem
-    with mathematical structure does not learn a function and then store it. It builds a
-    geometric attractor whose shape <em>is</em> the function. Once the attractor exists, every
-    prediction is a position on it; every intervention is a motion across it; every control we
-    care about — accuracy, steering, interpretation — is geometry.
+    The bloom and the steering point at the same thing. When a network solves a problem with this
+    much structure, it does not learn a function and then store it somewhere; it grows a geometric
+    object whose shape encodes the function. After that, every prediction is a position on the
+    object, every intervention is a motion across it, and questions about accuracy, steering, and
+    interpretation become questions about geometry.
   </p>
 
   <p>
-    For a task as small as modular division, the attractor is a 3D Fourier knot we can render and
-    fly through. For larger tasks the attractors are higher-dimensional and uglier, but the picture
-    is the same one. Find the manifold and you have found the algorithm. Walk the manifold and you
-    are doing the only intervention the model knows how to follow.
+    For modular division the attractor is a 3D Fourier knot, small enough to render and fly through.
+    For larger tasks the manifolds will be higher-dimensional and harder to picture, but the
+    underlying claim is the same: finding the manifold means finding the algorithm, and the only
+    interventions that work cleanly are the ones the manifold permits.
   </p>
 
   <footer>
@@ -541,8 +542,8 @@ Running through 9216 (a, b) pairs...
           FFN1 neuron purities, steering hit rates per Δ. These are the numbers behind every figure on this page.</li>
     </ul>
     <p>
-      No curated highlight reel. The numbers and the code are the same numbers and the same code that
-      produced the visualizations above.
+      Everything in the repository is what produced the figures on this page. There are no separate
+      cleaned-up datasets or hand-picked runs.
     </p>
   </footer>
 
