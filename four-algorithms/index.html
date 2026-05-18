@@ -154,17 +154,22 @@
   footer { color: var(--muted); font-size: 13px; border-top: 1px solid var(--rule);
            padding-top: 24px; margin-top: 64px; }
 
-  /* —— Series navigation —— */
-  .series-nav { display: flex; flex-wrap: wrap; gap: 8px;
-                font-size: 12px; letter-spacing: 0.04em;
-                margin: 0 0 28px; padding-bottom: 18px;
-                border-bottom: 1px solid var(--rule); }
-  .series-nav a, .series-nav span { padding: 5px 11px; border-radius: 4px;
-                                     text-decoration: none; }
+  /* —— Series navigation (shared with fourier-bloom) —— */
+  .series-nav {
+    max-width: 720px; margin: 0 auto;
+    padding: 20px clamp(20px, 4vw, 40px) 0;
+    display: flex; flex-wrap: wrap; gap: 8px;
+    font-family: ui-monospace, 'SF Mono', Menlo, monospace;
+    font-size: 11px; letter-spacing: 0.06em;
+    text-transform: uppercase;
+  }
+  .series-nav a, .series-nav span {
+    padding: 5px 11px; border-radius: 4px; text-decoration: none;
+  }
   .series-nav a { color: var(--accent); border: 1px solid var(--rule); }
-  .series-nav a:hover { background: rgba(0,0,0,0.04); }
+  .series-nav a:hover { background: rgba(194, 85, 64, 0.10); }
   .series-nav .current { color: var(--ink);
-                          background: rgba(194, 85, 64, 0.08);
+                          background: rgba(194, 85, 64, 0.10);
                           border: 1px solid var(--accent); }
   .series-nav .disabled { color: var(--faint); border: 1px dashed var(--rule); }
 </style>
