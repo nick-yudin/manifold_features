@@ -1,63 +1,63 @@
-# Fourier Bloom
+# Manifold Features
 
-A small transformer learns modular division by growing a 3D Fourier knot inside itself. This repository contains the interactive visualizations, the standalone notebooks that produced them, a hand-built version of the model that reaches 100% accuracy with no training, and a verify script anyone can run in under a minute.
+A series of interactive longform notes on how small transformers grow algorithms inside their residual stream. Every claim has standalone notebooks that reproduce it from scratch.
 
-**Live site:** https://nick-yudin.github.io/fourier-bloom/
+**Live site:** https://nick-yudin.github.io/manifold_features/
 
-## What's here
+**Author:** Nikolay Yudin — [@Nikolay_Yudin_](https://twitter.com/Nikolay_Yudin_)
 
-### Interactive
+## The series
 
-- [`index.html`](index.html) — landing page served at the URL above. Long-form writeup with two embedded interactive scenes.
-- [`fourier_bloom_chamber.html`](fourier_bloom_chamber.html) — scrub through training and watch the 96 invertible remainders settle into a Lissajous knot.
-- [`steering_theater.html`](steering_theater.html) — pick a shift Δ and compare the manifold walk against the linear chord.
+| | Title | Status | Live |
+|---|---|---|---|
+| Part 1 | [Inside the grokked manifold of mod-97 division](fourier-bloom/) — observe, build, steer | published | [open](https://nick-yudin.github.io/manifold_features/fourier-bloom/) |
+| Part 2 | [Four algorithms in one tiny brain](four-algorithms/) — div, add, max, parity in one shared head | published | [open](https://nick-yudin.github.io/manifold_features/four-algorithms/) |
+| Part 3 | Grokking, in general | coming | — |
+| Part 4 | Manifold-Anchored Fine-Tuning (MAFT) — transfer to Qwen 7B | coming | — |
 
-### Reproduce
-
-- [`verify_handcrafted.py`](verify_handcrafted.py) — 90 lines. Loads the hand-built weights, runs the model on all 9216 (a, b) input pairs, prints accuracy. Expected output: `9216/9216 correct = 100.0000%`.
-- [`handcrafted_state_dict.pt`](handcrafted_state_dict.pt) — the hand-built weights. No training. Every entry set from the recipe in `notebooks/handcrafted_construction.ipynb`.
+## Repository layout
 
 ```
-git clone https://github.com/nick-yudin/fourier-bloom
-cd fourier-bloom
-pip install torch
-python verify_handcrafted.py
+manifold_features/
+├── README.md              this file
+├── fourier-bloom/         Part 1 — single-algorithm work (P=97, division)
+│   ├── index.html         long-form note
+│   ├── fourier_bloom_chamber.html
+│   ├── steering_theater.html
+│   ├── verify_handcrafted.py
+│   ├── handcrafted_state_dict.pt
+│   ├── notebooks/
+│   └── data/
+└── four-algorithms/       Part 2 — four-task transformer (P=149)
+    ├── index.html         long-form note
+    ├── build.py
+    ├── data.json, walk_results.json, dictation_results.json, …
+    ├── notebooks/         standalone Jupyter notebooks
+    └── README.md          per-section guide
 ```
 
-Runs in under a minute on CPU. No GPU required.
+## Reproduce
 
-### Notebooks
+Every notebook in this repo is standalone. State dicts that are too large to ship in git live on the Hugging Face Hub at [`NikolayYudin/manifold-features-data`](https://huggingface.co/datasets/NikolayYudin/manifold-features-data).
 
-All four notebooks are standalone. They write to `./outputs/<name>/` and do not require Google Drive.
+Quick starts:
 
-- [`notebooks/training_slowmo.ipynb`](notebooks/training_slowmo.ipynb) — the per-step training run that produces the bloom in Fig. 1. Saves snapshots at every gradient step.
-- [`notebooks/handcrafted_construction.ipynb`](notebooks/handcrafted_construction.ipynb) — builds every weight in the hand-built model from scratch and writes out `handcrafted_state_dict.pt`.
-- [`notebooks/multi_location_bloom.ipynb`](notebooks/multi_location_bloom.ipynb) — measures the Fourier-circle structure at five different locations inside the trained network. Produces Fig. 2 (`multiloc_diffusion.png`).
-- [`notebooks/steering_methods.ipynb`](notebooks/steering_methods.ipynb) — six steering methods compared head-to-head: dictation, walking, the linear chord baseline, and three controls.
+- **Part 1** — `pip install torch && python fourier-bloom/verify_handcrafted.py` prints `9216/9216 correct = 100.0000%` in under a minute. No training, no GPU.
+- **Part 2** — open [`four-algorithms/notebooks/walk_and_dictation.ipynb`](four-algorithms/notebooks/walk_and_dictation.ipynb) in Colab. It pulls a trained 4-task checkpoint from the Hub and reproduces the steering numbers in a few minutes.
 
-`multi_location_bloom.ipynb` and `steering_methods.ipynb` both read the snapshot file produced by `training_slowmo.ipynb`. Run that notebook first.
+## Headline claims
 
-### Data
+**Part 1.** A 2-block transformer trained on `c = a · b⁻¹ mod 97` builds a 3D Fourier knot in `W_U`, the same basis appears in FFN1 / residual / V composition, and the model can be steered along that knot at ≥96.7% hit rate. A hand-built version with no training hits 100% on all 9216 input pairs.
 
-JSON files containing the raw numbers behind each panel of the writeup. Re-plotting or re-analyzing without re-running the notebooks is one read away.
+**Part 2.** A 4.8M-parameter transformer trained on div + add + max + parity simultaneously grows four different geometric objects in one shared residual stream: each in its own basis, at its own time during training, in its own component of the forward pass. Chord walking on all four manifolds gets ≥97% hit rate across Δ ∈ ±100. Dictation gets 100% on every target class. WD=0.3 is 4.3× faster to grok add than the standard WD=1.0 setup.
 
-- `data/slowmo_training.json` — per-step training and test accuracy.
-- `data/handcrafted_verification.json` — accuracy of the hand-built model on the full input set.
-- `data/multiloc_bloom.json` — Fourier-circle quality (CV) per training step, per location.
-- `data/steering2_hit_rates.json` — hit rates for six steering methods, per Δ.
-- `data/steering3_per_seed.json` — per-seed hit rates across ten independently trained models.
+**Part 3 (coming).** What the geometry says about grokking as a phenomenon — what the gauge is across seeds, what is and isn't a "true" learned algorithm, how this reframes the memorization/generalization story.
 
-## The setup
-
-A 2-block transformer with residual dimension 384, SwiGLU FFN, RMSNorm, AdamW. Task: c = a · b⁻¹ mod 97 over the multiplicative group of order 96. The visualizations project the unembedding matrix `W_U` onto three of its own Fourier directions. No t-SNE, no PCA. Each axis is a column-projection of `W_U` onto a real cosine or sine basis vector.
-
-## What this is, in one paragraph
-
-A trained transformer solving mod-97 division does not memorize a lookup table. The 96 invertible remainders arrange themselves on a precise 3D Fourier knot inside the residual stream, and the network reads its predictions off that knot. Once you can see this, two things follow. First, you can write the model by hand from the same recipe, with no training, and get 100% accuracy. Second, you can shift the model's predictions from outside, by walking along the knot rather than pushing sideways through it. Walking hits 96.7%. Direct manifold replacement hits 100%. The standard linear activation-steering vector caps at about 50%, because the algorithmic direction is curved.
+**Part 4 (coming).** **MAFT — Manifold-Anchored Fine-Tuning.** The same dictation operation, applied to a 7B base LLM, lets the model's internal manifold supervise its own fine-tuning. Early result: 47.8% → 88.9% on mult mod 11 with 8-bit AdamW on a single A100.
 
 ## Citation
 
-If this work shows up in a paper or thread, a link to the site or the repo is enough.
+If this work shows up in a paper or thread, a link to the live site or the repo is enough.
 
-Nikolay Yudin. *Fourier Bloom: How a small transformer learns modular division.* 2026.
-https://nick-yudin.github.io/fourier-bloom/
+Nikolay Yudin. *Manifold Features.* 2026.
+https://nick-yudin.github.io/manifold_features/
