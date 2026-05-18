@@ -626,15 +626,47 @@ baseline.</div>
 <hr class=sep>
 
 <footer>
-  Reproducibility. Training run: <code>plan6t_5seeds_wd03</code>. Steering
-  and dictation: <code>plan6t_walk_dictation_4task</code>. Handcrafted max:
-  <code>plan6c_handcraft_max</code>. Handcrafted div (from the previous
-  note): <code>handcrafted_v1</code>. Preprocessing notebook:
-  <code>exp_four_algo_preprocess.ipynb</code>. Site source and notebooks at
-  <a href="https://github.com/nick-yudin/manifold_features">github.com/nick-yudin/manifold_features</a>.
-  <br><br>
-  Author: Nikolay Yudin —
-  <a href="https://twitter.com/Nikolay_Yudin_">@Nikolay_Yudin_</a>.
+  <p>
+    <strong>Architecture.</strong> 2-block transformer, residual dimension 384,
+    12 attention heads, SwiGLU FFN, RMSNorm, AdamW (lr 1e-3, WD 0.3, betas
+    0.9/0.98). Four tasks share one body and one output head: <i>div</i>
+    (a · b<sup>−1</sup> mod 149), <i>add</i> ((a + b) mod 149), <i>max</i>
+    (max(a, b)), <i>parity</i> ((a + b) mod 2). 5 seeds. Figures on this
+    page are from seed 1000 except where the panel says otherwise.
+  </p>
+  <p>
+    <strong>Everything that produced these visualizations is in the
+    repository</strong> (links open the file on GitHub):
+  </p>
+  <ul>
+    <li><a href="https://github.com/nick-yudin/manifold_features/blob/main/four-algorithms/notebooks/train_5seeds.ipynb"><code>notebooks/train_5seeds.ipynb</code></a>
+        — trains 5 seeds of the 4-task transformer; saves <code>final.pt</code>
+        and per-step snapshots used by every figure below.</li>
+    <li><a href="https://github.com/nick-yudin/manifold_features/blob/main/four-algorithms/notebooks/walk_and_dictation.ipynb"><code>notebooks/walk_and_dictation.ipynb</code></a>
+        — chord walk, linear tangent, random direction, dictation sweeps.
+        Produces the charts in <span style="font-style:italic">Driving the
+        algorithms</span>.</li>
+    <li><a href="https://github.com/nick-yudin/manifold_features/blob/main/four-algorithms/notebooks/handcraft_max.ipynb"><code>notebooks/handcraft_max.ipynb</code></a>
+        — builds a 2-block transformer that solves <i>max(a, b) mod 97</i>
+        with weights placed by formula. 100% accuracy on all 9409 pairs.</li>
+    <li><a href="https://github.com/nick-yudin/manifold_features/blob/main/four-algorithms/notebooks/multilocation_analysis.ipynb"><code>notebooks/multilocation_analysis.ipynb</code></a>
+        — cross-basis 4×4, multi-location 4×9, parity↔add Nyquist coupling.</li>
+    <li><a href="https://github.com/nick-yudin/manifold_features/tree/main/four-algorithms"><code>data/</code></a>
+        — JSON summaries consumed by this page: training curves, walk hit
+        rates, dictation hit rates, handcraft verification.</li>
+    <li><a href="https://huggingface.co/datasets/NikolayYudin/manifold-features-data">Hugging Face dataset</a>
+        — <code>final.pt</code> for all 5 seeds plus the handcrafted-max
+        state dict. The notebooks pull from here if you do not want to
+        train from scratch.</li>
+  </ul>
+  <p>
+    Everything in the repository is what produced the figures on this page.
+    There are no separate cleaned-up datasets or hand-picked runs.
+  </p>
+  <p>
+    <strong>Author.</strong> Nikolay Yudin —
+    <a href="https://twitter.com/Nikolay_Yudin_">@Nikolay_Yudin_</a>.
+  </p>
 </footer>
 
 </article>

@@ -288,9 +288,38 @@
   footer p { margin-bottom: 8px; color: var(--muted); font-size: 13px; }
   footer a { color: var(--muted); border-color: var(--rule); }
   footer a:hover { color: var(--ink); }
+
+  /* ---- Series navigation (shared with four-algorithms) ---- */
+  nav.series-nav {
+    max-width: 720px;
+    margin: 0 auto;
+    padding: 20px clamp(20px, 4vw, 40px) 0;
+    display: flex; flex-wrap: wrap; gap: 8px;
+    font-family: ui-monospace, 'SF Mono', Menlo, monospace;
+    font-size: 11px;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+  }
+  nav.series-nav a, nav.series-nav span {
+    padding: 5px 11px; border-radius: 4px; text-decoration: none;
+  }
+  nav.series-nav a { color: var(--accent); border: 1px solid var(--rule); }
+  nav.series-nav a:hover { background: var(--accent-soft); }
+  nav.series-nav .current {
+    color: var(--ink); background: var(--accent-soft);
+    border: 1px solid var(--accent);
+  }
+  nav.series-nav .disabled { color: var(--faint); border: 1px dashed var(--rule); }
 </style>
 </head>
 <body>
+
+<nav class="series-nav">
+  <span class="current">Part 1 · Single algorithm</span>
+  <a href="../four-algorithms/">Part 2 · Four algorithms →</a>
+  <span class="disabled">Part 3 · Grokking · coming</span>
+  <span class="disabled">Part 4 · Transfer to LLMs · coming</span>
+</nav>
 
 <article>
 
@@ -525,20 +554,22 @@ Running through 9216 (a, b) pairs...
       reduction is applied.
     </p>
     <p>
-      <strong>Everything that produced these visualizations is in the repository:</strong>
+      <strong>Everything that produced these visualizations is in the repository</strong>
+      (links open the file on GitHub):
     </p>
     <ul>
-      <li><a href="verify_handcrafted.py"><code>verify_handcrafted.py</code></a> +
-          <code>handcrafted_state_dict.pt</code> — load the hand-built model and confirm 100% accuracy in under a minute</li>
-      <li><a href="notebooks/training_slowmo.ipynb"><code>notebooks/training_slowmo.ipynb</code></a> —
+      <li><a href="https://github.com/nick-yudin/manifold_features/blob/main/fourier-bloom/verify_handcrafted.py"><code>verify_handcrafted.py</code></a>
+          + <a href="https://github.com/nick-yudin/manifold_features/blob/main/fourier-bloom/handcrafted_state_dict.pt"><code>handcrafted_state_dict.pt</code></a>
+          — load the hand-built model and confirm 100% accuracy in under a minute</li>
+      <li><a href="https://github.com/nick-yudin/manifold_features/blob/main/fourier-bloom/notebooks/training_slowmo.ipynb"><code>notebooks/training_slowmo.ipynb</code></a> —
           the per-step training run used in <span style="font-style:italic">The bloom</span> (Fig. 1)</li>
-      <li><a href="notebooks/handcrafted_construction.ipynb"><code>notebooks/handcrafted_construction.ipynb</code></a>
+      <li><a href="https://github.com/nick-yudin/manifold_features/blob/main/fourier-bloom/notebooks/handcrafted_construction.ipynb"><code>notebooks/handcrafted_construction.ipynb</code></a>
           — every weight in the hand-built model, written out explicitly</li>
-      <li><a href="notebooks/multi_location_bloom.ipynb"><code>notebooks/multi_location_bloom.ipynb</code></a>
+      <li><a href="https://github.com/nick-yudin/manifold_features/blob/main/fourier-bloom/notebooks/multi_location_bloom.ipynb"><code>notebooks/multi_location_bloom.ipynb</code></a>
           — the five-location measurement behind Fig. 2</li>
-      <li><a href="notebooks/steering_methods.ipynb"><code>notebooks/steering_methods.ipynb</code></a>
+      <li><a href="https://github.com/nick-yudin/manifold_features/blob/main/fourier-bloom/notebooks/steering_methods.ipynb"><code>notebooks/steering_methods.ipynb</code></a>
           — six steering methods compared head-to-head (dictation, walking, linear chord, chirality test)</li>
-      <li><a href="data/"><code>data/</code></a> — JSON summaries: per-step <code>W_U</code> circle quality,
+      <li><a href="https://github.com/nick-yudin/manifold_features/tree/main/fourier-bloom/data"><code>data/</code></a> — JSON summaries: per-step <code>W_U</code> circle quality,
           FFN1 neuron purities, steering hit rates per Δ. These are the numbers behind every figure on this page.</li>
     </ul>
     <p>
@@ -548,11 +579,6 @@ Running through 9216 (a, b) pairs...
     <p>
       <strong>Author.</strong> Nikolay Yudin —
       <a href="https://twitter.com/Nikolay_Yudin_">@Nikolay_Yudin_</a>.
-      Series:
-      <span style="color:#888">Part 1 · Single algorithm (you are here)</span> ·
-      <a href="../four-algorithms/">Part 2 · Four algorithms</a> ·
-      <span style="color:#bbb">Part 3 · Grokking · coming</span> ·
-      <span style="color:#bbb">Part 4 · Transfer to LLMs · coming</span>
     </p>
   </footer>
 
