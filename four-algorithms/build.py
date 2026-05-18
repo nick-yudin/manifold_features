@@ -58,12 +58,16 @@ HTML_TEMPLATE = r"""<!doctype html>
 <title>Four algorithms in one tiny brain</title>
 <style>
   :root {
-    --bg: #fbfaf6;
+    --bg: #f5f1e8;
     --ink: #1a1a1a;
+    --soft-ink: #2c2a23;
     --muted: #6b6657;
     --faint: #aba89a;
     --rule: rgba(0,0,0,0.10);
+    --rule-soft: rgba(0,0,0,0.06);
     --accent: #c25540;
+    --accent-soft: rgba(194,85,64,0.10);
+    --panel: rgba(255,255,253,0.55);
 
     --c-div:    #d45a2a;
     --c-add:    #3a6e8c;
@@ -71,25 +75,94 @@ HTML_TEMPLATE = r"""<!doctype html>
     --c-parity: #9c5ebe;
   }
   * { box-sizing: border-box; }
-  html, body { margin: 0; background: var(--bg); color: var(--ink);
-               font: 16px/1.65 -apple-system, "Inter", "Segoe UI", system-ui, sans-serif;
-               -webkit-font-smoothing: antialiased; }
-  a { color: var(--accent); text-decoration: none; }
-  a:hover { text-decoration: underline; }
-  article { max-width: 720px; margin: 0 auto; padding: 64px 28px 96px; }
-  h1 { font-family: "ui-serif", Georgia, "Cambria", serif;
-       font-size: 38px; font-weight: 600; line-height: 1.18; margin: 0 0 12px; }
-  h2 { font-family: "ui-serif", Georgia, "Cambria", serif;
-       font-size: 26px; font-weight: 600; margin: 56px 0 14px; }
-  h3 { font-family: "ui-serif", Georgia, "Cambria", serif;
-       font-size: 19px; font-weight: 600; margin: 36px 0 12px; color: #2c2c2c; }
-  p { margin: 14px 0; color: #2c2c2c; }
-  .lede { font-size: 17.5px; color: var(--muted); }
-  .meta { color: var(--faint); font-size: 13px; letter-spacing: 0.04em;
-          text-transform: uppercase; margin-bottom: 28px; }
+  html { -webkit-text-size-adjust: 100%; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--ink);
+    font-family: 'Iowan Old Style', 'Palatino Linotype', 'Palatino', 'P052', 'URW Palladio L', Georgia, serif;
+    font-size: 18px;
+    line-height: 1.7;
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+  }
+  ::selection { background: var(--accent-soft); }
+  a { color: var(--ink); text-decoration: none; border-bottom: 1px solid var(--rule); }
+  a:hover { border-color: var(--ink); }
+
+  article {
+    max-width: 720px;
+    margin: 0 auto;
+    padding: clamp(48px, 7vh, 96px) clamp(20px, 4vw, 40px) 120px;
+  }
+
+  /* ---- Title block ---- */
+  header.title-block {
+    margin-bottom: clamp(40px, 6vh, 64px);
+    padding-bottom: 32px;
+    border-bottom: 1px solid var(--rule);
+  }
+  h1.title {
+    font-family: 'Iowan Old Style', 'Palatino Linotype', Georgia, serif;
+    font-size: clamp(36px, 4.6vw, 52px);
+    line-height: 1.12;
+    font-weight: 500;
+    letter-spacing: -0.01em;
+    margin: 0 0 18px;
+    color: var(--ink);
+  }
+  .subtitle {
+    font-family: 'Iowan Old Style', 'Palatino Linotype', Georgia, serif;
+    font-size: clamp(18px, 2vw, 22px);
+    line-height: 1.45;
+    color: var(--muted);
+    font-style: italic;
+    margin: 0 0 22px;
+  }
+  .meta {
+    font-family: ui-monospace, 'SF Mono', Menlo, monospace;
+    font-size: 12px;
+    color: var(--faint);
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    margin: 0;
+  }
+  .meta a { color: var(--muted); text-decoration: none; border-bottom: 1px solid var(--rule); }
+  .meta a:hover { color: var(--ink); border-color: var(--ink); }
+  .meta-sep { margin: 0 8px; color: var(--faint); }
+
+  /* ---- Body ---- */
+  h2 {
+    font-family: 'Iowan Old Style', 'Palatino Linotype', Georgia, serif;
+    font-size: 26px;
+    font-weight: 500;
+    line-height: 1.25;
+    margin: clamp(48px, 6vh, 72px) 0 18px;
+    color: var(--ink);
+    letter-spacing: -0.005em;
+  }
+  h3 {
+    font-family: 'Iowan Old Style', 'Palatino Linotype', Georgia, serif;
+    font-size: 19px;
+    font-weight: 500;
+    margin: 32px 0 10px;
+    color: var(--soft-ink);
+  }
+  p { margin: 0 0 18px; color: var(--soft-ink); }
+  p.lede { font-size: 21px; line-height: 1.55; color: var(--ink); margin-bottom: 28px; }
+  em, i { font-style: italic; color: var(--ink); }
+  strong, b { font-weight: 600; color: var(--ink); }
+  ul { margin: 0 0 18px; padding-left: 22px; color: var(--soft-ink); }
+  ul li { margin-bottom: 6px; }
+  code {
+    font-family: ui-monospace, 'SF Mono', Menlo, monospace;
+    font-size: 0.88em;
+    background: rgba(0,0,0,0.04);
+    padding: 1px 5px;
+    border-radius: 3px;
+    color: var(--soft-ink);
+  }
   .caption { font-size: 13.5px; color: var(--muted); margin-top: 8px; font-style: italic; }
-  code { background: rgba(0,0,0,0.05); padding: 1px 5px; border-radius: 3px;
-         font-size: 14px; font-family: ui-monospace, "Menlo", monospace; }
   hr.sep { border: none; border-top: 1px solid var(--rule); margin: 60px 0; }
 
   /* fig containers can be wider than the article column */
@@ -237,12 +310,17 @@ HTML_TEMPLATE = r"""<!doctype html>
 
 <article>
 
-<div class=meta>Mechanistic interpretability · note 2 · 2026</div>
-<h1>Four algorithms in one tiny brain</h1>
-<p class=lede>
-  What happens if you train one small transformer to do four different math
-  operations at the same time? It learns each one in a different shape.
-</p>
+  <header class="title-block">
+    <h1 class="title">Four algorithms in one tiny brain</h1>
+    <p class="subtitle">What happens if you train one small transformer to do four different math operations at the same time? It learns each one in a different shape.</p>
+    <p class="meta">
+      <a href="https://github.com/nick-yudin">Nikolay Yudin</a>
+      <span class="meta-sep">·</span>
+      <span>May 2026</span>
+      <span class="meta-sep">·</span>
+      <span>Mechanistic interpretability — note 2</span>
+    </p>
+  </header>
 
 <p>
   In the <a href="../fourier-bloom/">previous note</a> I trained a small model on modular
