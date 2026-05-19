@@ -343,7 +343,7 @@
     Qwen 7B.
   </p>
 
-  <p class="lede">
+  <p>
     <strong>TL;DR.</strong> I trained a small transformer to compute <i>c = a · b<sup>−1</sup> (mod 97)</i>
     and looked at what grokking actually built inside it: a 3D Fourier knot in the unembedding, in
     the FFN1 mid-stream, and in the attention-value composition. <strong>Same Fourier basis in
@@ -490,6 +490,17 @@
     </figcaption>
   </figure>
 
+  <figure>
+    <img src="bloom_curves.png" alt="Per-location Fourier circle quality (coefficient of variation) over training. W_U, residual stream, FFN1-mid, and W_E∘V all converge below the clean threshold of 0.15; W_E (control) stays at ~0.27 throughout.">
+    <figcaption>
+      <span class="lab">Fig. 3.</span> Per-location Fourier circle quality during training, measured
+      as coefficient of variation around the Fourier-<i>k</i>=11 fit (lower is cleaner). The four
+      active sites — <code>W_U</code>, <code>W_E∘V</code>, residual stream, FFN1-mid — all converge
+      below the clean threshold of 0.15. The <code>W_E</code> control stays well above it. The four
+      sites finish forming at the same time and end up sharing one basis.
+    </figcaption>
+  </figure>
+
   <h2>3. Build</h2>
 
   <h3>3.1 The recipe</h3>
@@ -527,21 +538,6 @@
     architecture, and evaluates on all 9216 (a, b) pairs.
   </p>
 
-  <div class="numbers">
-    <div class="row">
-      <span class="label">Hand-built transformer accuracy on the full 9,216 input pairs</span>
-      <span class="val accent">100.00%</span>
-    </div>
-    <div class="row">
-      <span class="label">Per-class accuracy across every <i>(l<sub>a</sub> − l<sub>b</sub>)</i> bucket</span>
-      <span class="val">100% / 96</span>
-    </div>
-    <div class="row">
-      <span class="label">Fourier circle quality, hand-built model</span>
-      <span class="val">machine precision</span>
-    </div>
-  </div>
-
   <p>
     There are <strong>no learned weights</strong> and <strong>no training loop</strong>; the
     accuracy is 100% because <strong>the geometry is exact</strong>.
@@ -569,6 +565,17 @@ Running through 9216 (a, b) pairs...
 
   No training. Just the algorithm written into the weights.</span></pre>
   </div>
+
+  <figure>
+    <img src="handcrafted_figures.png" alt="Three panels of the handcrafted model: W_U projected onto its k=11 dlog Fourier basis showing 96 beads on a clean circle; the residual manifold at eq, also on a clean circle; FFN1-mid neurons activating in sync with the (lₐ − l_b) bucket index.">
+    <figcaption>
+      <span class="lab">Fig. 4.</span> The handcrafted model's internal structure.
+      Left: <code>W_U</code> projected onto the <i>k</i>=11 dlog Fourier basis — 96 beads on a
+      single circle, no scatter. Middle: the residual manifold at the eq position, also a clean
+      circle. Right: FFN1-mid neuron activations grouped by <i>l<sub>a</sub> − l<sub>b</sub></i>.
+      Everything that the trained model grows is present in the handcrafted model by construction.
+    </figcaption>
+  </figure>
 
   <h2>4. Steer</h2>
 
@@ -642,7 +649,7 @@ Running through 9216 (a, b) pairs...
   <div class="embed">
     <iframe src="steering_theater.html" class="steering-frame" title="Steering theater — walk vs chord"></iframe>
     <div class="embed-caption">
-      <span class="num">Fig. 3.</span> Pick a source class and a shift Δ. The orange arc is the
+      <span class="num">Fig. 5.</span> Pick a source class and a shift Δ. The orange arc is the
       manifold walk — every bead is a real class. The chord cutting across the cube is what a
       linear steering vector would do.
     </div>
