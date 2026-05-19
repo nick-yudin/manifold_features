@@ -56,6 +56,17 @@ HTML_TEMPLATE = r"""<!doctype html>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Four algorithms in one tiny brain</title>
+<meta name="description" content="A small transformer learns division, addition, max and parity in one shared head — each in its own basis, at its own time, in its own component of the forward pass.">
+<meta property="og:type" content="article">
+<meta property="og:title" content="Four algorithms in one tiny brain">
+<meta property="og:description" content="A small transformer learns division, addition, max and parity in one shared head — each in its own basis, at its own time, in its own component of the forward pass.">
+<meta property="og:url" content="https://nick-yudin.github.io/manifold_features/four-algorithms/">
+<meta property="og:image" content="https://nick-yudin.github.io/manifold_features/four-algorithms/preview.png">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Four algorithms in one tiny brain">
+<meta name="twitter:description" content="A small transformer learns division, addition, max and parity in one shared head — each in its own basis, at its own time, in its own component of the forward pass.">
+<meta name="twitter:image" content="https://nick-yudin.github.io/manifold_features/four-algorithms/preview.png">
+<meta name="twitter:creator" content="@Nikolay_Yudin_">
 <style>
   :root {
     --bg: #f5f1e8;
