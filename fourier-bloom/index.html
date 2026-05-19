@@ -3,22 +3,23 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Fourier Bloom — How a neural network learns modular division</title>
-<meta name="description" content="A small transformer learns modular division by growing a 3D Fourier knot. Two interactive visualizations show how the algorithm forms and how it can be steered along the manifold it creates.">
-<meta property="og:title" content="Fourier Bloom — How a neural network learns modular division">
-<meta property="og:description" content="A small transformer learns modular division by growing a 3D Fourier knot. Two interactive visualizations show how the algorithm forms and how it can be steered along the manifold it creates.">
+<title>Inside the grokked manifold of mod-97 division: observe, build, steer</title>
+<meta name="description" content="Independent research note on mechanistic interpretability. A 2-block transformer learning c = a · b⁻¹ mod 97 builds a 3D Fourier knot in W_U. Hand-built reconstruction hits 100% on all 9216 pairs; walking the knot steers the trained model at 96.7% versus ~50% for the linear chord. Observe, build, steer — three tests of understanding on one task.">
+<meta property="og:title" content="Inside the grokked manifold of mod-97 division: observe, build, steer">
+<meta property="og:description" content="A 2-block transformer learning c = a · b⁻¹ mod 97 builds a 3D Fourier knot in W_U. Hand-built reconstruction hits 100% on all 9216 pairs; walking the knot steers the trained model at 96.7% versus ~50% for the linear chord.">
 <meta property="og:type" content="article">
 <meta property="og:url" content="https://nick-yudin.github.io/manifold_features/fourier-bloom/">
 <meta property="og:image" content="https://nick-yudin.github.io/manifold_features/fourier-bloom/multiloc_diffusion.png">
 <meta property="og:image:width" content="1431">
 <meta property="og:image:height" content="731">
 <meta property="og:image:alt" content="Five-row grid showing how circular Fourier structure crystallizes during training across W_U, W_E@V, residual stream, FFN1, and W_E.">
-<meta property="og:site_name" content="Fourier Bloom">
+<meta property="og:site_name" content="Manifold Features">
 <meta name="twitter:card" content="summary_large_image">
-<meta name="twitter:title" content="Fourier Bloom — How a neural network learns modular division">
-<meta name="twitter:description" content="A small transformer learns modular division by growing a 3D Fourier knot. Two interactive visualizations show how the algorithm forms and how it can be steered.">
+<meta name="twitter:title" content="Inside the grokked manifold of mod-97 division: observe, build, steer">
+<meta name="twitter:description" content="A 2-block transformer learning c = a · b⁻¹ mod 97 builds a 3D Fourier knot in W_U. Hand-built reconstruction hits 100% on all 9216 pairs; walking the knot steers the trained model at 96.7% versus ~50% for the linear chord.">
 <meta name="twitter:image" content="https://nick-yudin.github.io/manifold_features/fourier-bloom/multiloc_diffusion.png">
 <meta name="twitter:image:alt" content="Five-row grid showing how circular Fourier structure crystallizes during training across W_U, W_E@V, residual stream, FFN1, and W_E.">
+<meta name="twitter:creator" content="@Nikolay_Yudin_">
 <style>
   :root {
     --bg: #f5f1e8;
@@ -321,105 +322,209 @@
 <article>
 
   <header class="title-block">
-    <h1 class="title">Fourier Bloom</h1>
-    <p class="subtitle">A small transformer learns modular division by growing a 3D Fourier knot inside itself.</p>
+    <h1 class="title">Inside the grokked manifold of mod-97 division: observe, build, steer</h1>
+    <p class="subtitle">Three tests of understanding on one task — watch the algorithm form, rebuild it by hand, then steer the trained model along the curve it grew.</p>
     <p class="meta">
       <a href="https://github.com/nick-yudin">Nikolay Yudin</a>
       <span class="meta-sep">·</span>
       <span>May 2026</span>
       <span class="meta-sep">·</span>
-      <span>Interactive research note</span>
+      <a href="https://twitter.com/Nikolay_Yudin_">@Nikolay_Yudin_</a>
+      <span class="meta-sep">·</span>
+      <span>Independent research</span>
     </p>
   </header>
 
+  <p>
+    One task, one model: modular division mod 97 in a 2-block transformer (d=384). The observation
+    of manifold formation every single step, hand-built reconstruction demonstrating precision as a
+    proof that I understood it, and finally walking along the manifold, steering the answer. The
+    next post tests four tasks in one shared head, and the one after that ports the operation to
+    Qwen 7B.
+  </p>
+
   <p class="lede">
-    Train a tiny transformer to compute <i>c = a · b<sup>−1</sup> mod 97</i> and you can watch how it learns.
-    The network has enough parameters to memorize a 97 × 97 lookup table, but it doesn't. What it does
-    instead is grow a Fourier knot in three dimensions and read answers off that knot. The knot turns
-    out to be the whole algorithm.
+    <strong>TL;DR.</strong> I trained a small transformer to compute <i>c = a · b<sup>−1</sup> (mod 97)</i>
+    and looked at what grokking actually built inside it: a 3D Fourier knot in the unembedding, in
+    the FFN1 mid-stream, and in the attention-value composition. <strong>Same Fourier basis in
+    several places at once.</strong> To check I understood the mechanism, I rebuilt the model by
+    hand. With no training I got <strong>100% accuracy on all 9216 input pairs</strong>. Knowing the
+    geometry, I went back to the trained model and steered it three ways:
+    <strong>dictation (100%)</strong>, <strong>walking along the knot (96.7%)</strong>, and the
+    standard <strong>linear-chord activation steering (about 50%)</strong>. The chord fails for a
+    geometric reason: it cuts through territory the model never visited.
+    <strong>Observe, build, steer</strong> — that's three tests of understanding of one task.
   </p>
 
   <p>
-    Below are two interactive visualizations. The first lets you scrub through training and watch the
-    knot form from random noise. The second uses the knot to <i>steer</i> the network's predictions, by
-    walking along the curve rather than pushing sideways through it.
+    All notebooks are on GitHub and can be re-run end-to-end to reproduce every figure in this post:
+    <a href="https://nick-yudin.github.io/manifold_features/fourier-bloom/">nick-yudin.github.io/manifold_features/fourier-bloom/</a>.
+  </p>
+
+  <h2>1. The setup</h2>
+
+  <p>
+    A 2-block transformer, residual dimension <strong>384</strong>, <strong>12 attention heads</strong>,
+    SwiGLU FFN, RMSNorm, AdamW with <strong>lr = 1e-3</strong>, <strong>weight decay = 1.0</strong>,
+    betas = (0.9, 0.98), <strong>batch size 512</strong>, up to <strong>1500 steps</strong>. The
+    task is <i>c = a · b<sup>−1</sup> mod 97</i>, input is four tokens <code>a, ×, b, =</code>. The
+    output head produces logits over all 97 classes, class 0 is never a valid answer for division,
+    but the head includes it for simplicity.
   </p>
 
   <p>
-    The setup is small. Two transformer blocks, residual dimension 384, trained to predict
-    <i>c = a · b<sup>−1</sup> mod 97</i>. There are 96 invertible remainders mod 97, and those are
-    the only outputs the network ever produces. The visualizations project the unembedding matrix
-    <code>W_U</code> (the layer that turns hidden states into logits) onto three of its own Fourier
-    directions. No t-SNE, no PCA, no axis chosen for effect: each axis is a column-projection of
-    <code>W_U</code> onto a real cosine or sine basis vector.
-  </p>
-
-  <h2>The bloom</h2>
-
-  <p>
-    Press play. The first few hundred steps look like noise: a fog of points around the origin.
-    Then two Fourier modes take over. The exact two harmonics vary across seeds, but the role they
-    play is the same in every run. They are integer harmonics <i>K₁</i> and <i>K₂</i>, and together
-    they map the 96 invertible remainders onto beads of a Lissajous curve. The 96 points drift away
-    from the origin, spread out, and settle into a knot whose shape is stable for the rest of training.
+    <strong>Why this way:</strong> it is close to the native grokking works, but it also builds on
+    my own earlier work where I was searching for the optimal model dimensionality across different
+    modular-arithmetic tasks where grokking happens fastest. By <strong>grokking</strong>, in this
+    context, I mean reaching <strong>95%+ accuracy</strong>.
   </p>
 
   <p>
-    The small panel on the right shows <code>W_E</code>, the token embedding. It sees the same
-    gradient signal as <code>W_U</code>, but the algorithm gives it no Fourier role to play, and it
-    stays close to its random initialization throughout training. Structure forms where the task uses
-    it and not elsewhere.
+    Training runs on <strong>50 train / 50 validation split</strong>. Later I will change this to
+    bring the setup closer to real training.
+  </p>
+
+  <p>
+    All runs use a single A100 in fp32 with full determinism enabled
+    (<code>torch.use_deterministic_algorithms(True)</code>, <code>cudnn.deterministic=True</code>,
+    <code>cudnn.benchmark=False</code>, with manually seeded PyTorch and CUDA generators), so that
+    everything within a seed reproduces exactly. Most figures in this post are from a single
+    training run (seed 1000); cross-seed checks are over five seeds (1000–1004).
+  </p>
+
+  <h2>2. Observe</h2>
+
+  <h3>2.1 The standard grokking curve</h3>
+
+  <p>
+    Over <strong>~960 steps</strong> we see the well-known curve described in
+    <em>Power et al. (2022)</em> and analysed in <em>Nanda et al. (2023)</em>: a plateau of about
+    <strong>660 steps at chance level</strong> (~1%, which is 1/97), then a
+    <strong>rapid rise from 50% to 95% in roughly 150 steps</strong> (the 45–55% band is crossed in
+    just <strong>16 steps</strong>), then a stable hold around <strong>99.9%</strong>. These two
+    stages are commonly called <strong>memorization</strong> and, after the jump,
+    <strong>generalization</strong>. My later experiments will show that what is actually happening
+    inside the model during this window is a steady, structured development of the algorithm at
+    many levels. There is no sudden moment of insight. We will come back to that in the next post,
+    after you have seen the full set of experiments in this series.
+  </p>
+
+  <h3>2.2 The bloom</h3>
+
+  <p>
+    Now let's go through the process step by step at every level and look for what was predicted in
+    <em>Nanda et al. (2023)</em>: a <strong>Fourier-series representation, which visually appears as
+    circles</strong>.
+  </p>
+
+  <p>
+    The unembedding <code>W_U</code> self-organizes from random init into a set of Fourier circles
+    in a 3D subspace. Pick the integer harmonics <code>K₁</code> and <code>K₂</code> with maximum
+    circular projection power on <code>W_U</code>, then project the 96 invertible-output rows onto
+    the four directions
+  </p>
+
+  <p style="text-align:center; font-size:17px;">
+    <code>(cos K₁·l, sin K₁·l, cos K₂·l, sin K₂·l)</code>
+  </p>
+
+  <p>
+    where <code>l = log_g(c)</code> is the discrete log of <code>c</code> in some fixed generator
+    <code>g</code>. The 96 classes land on a <strong>Lissajous curve, a 3D knot</strong>, and the
+    circle quality approaches machine precision late in training.
+  </p>
+
+  <p>
+    The embedding <code>W_E</code> <strong>does not bloom</strong>. It stays near random init in the
+    same basis throughout training. So the bloom is task-induced and lives in the components that
+    compute the output, not in every weight matrix.
   </p>
 
   <div class="embed">
     <iframe src="fourier_bloom_chamber.html" class="bloom-frame" title="Fourier bloom — training-time animation"></iframe>
     <div class="embed-caption">
       <span class="num">Fig. 1.</span> The 96 invertible remainders self-organize during training.
-      The large panel is <code>W_U</code> projected onto three Fourier directions; the small panel on
-      the right is <code>W_E</code> in the same basis. Scrub the timeline to watch the bloom unfold.
+      The large panel is <code>W_U</code> projected onto three Fourier directions; the small panel
+      on the right is <code>W_E</code> in the same basis. Scrub the timeline to watch the bloom
+      unfold.
     </div>
   </div>
 
-  <h2>The algorithm lives in many places at once</h2>
+  <h3>2.3 The same algorithm in many places at once</h3>
+
+  <p>The Fourier basis is not local to <code>W_U</code>. The same harmonics appear in:</p>
+
+  <ul>
+    <li><strong>FFN1 mid-stream</strong></li>
+    <li><strong>residual-stream activations</strong> at the last position</li>
+    <li><strong><code>W_U</code></strong></li>
+    <li><strong><code>W_E ∘ V</code> composition</strong> (embedding routed through the attention
+        value matrix)</li>
+  </ul>
 
   <p>
-    <code>W_U</code> is not the only place this happens. The same Fourier circles appear in every part
-    of the network that participates in the computation, and they do not appear in any part that doesn't.
+    …and <strong>not in <code>W_E</code> alone</strong>. The bloom shows up exactly where computation
+    flows. The embedding stays a neutral lookup table.
+  </p>
+
+  <p>
+    So <strong>the algorithm is a property of a shared basis</strong>, distributed across multiple
+    components that agree on the same <code>K</code>. It is not localised to any one weight matrix.
+  </p>
+
+  <p>
+    A panel of five locations × ten checkpoints makes this visible: every active site blooms on the
+    same <strong>Fourier-<i>k</i>=11 plane</strong>; the <code>W_E</code> control panel stays as
+    noise.
   </p>
 
   <figure>
     <img src="multiloc_diffusion.png" alt="Five locations projected onto their own final Fourier-k=11 planes across training. FFN1-mid, residual stream, W_U, and W_E∘V all bloom into circles by the end of training. W_E (control) stays as random noise.">
     <figcaption>
       <span class="lab">Fig. 2.</span> Five locations in the network projected onto their respective
-      Fourier-<i>k</i>=11 planes, at ten training checkpoints (left to right).
-      FFN1-mid activations (grouped by <i>l<sub>a</sub> − l<sub>b</sub></i>), the residual stream at
-      the eq position, and <code>W_U</code> each bloom from scatter to a clean circle.
-      <code>W_E∘V</code> reaches a partial circle. <code>W_E</code> (bottom row) never blooms.
-      The circle structure shared across these locations is the only object that matters for the
-      prediction.
+      Fourier-<i>k</i>=11 planes, at ten training checkpoints (left to right). FFN1-mid activations
+      (grouped by <i>l<sub>a</sub> − l<sub>b</sub></i>), the residual stream at the eq position, and
+      <code>W_U</code> each bloom from scatter to a clean circle. <code>W_E∘V</code> reaches a
+      partial circle. <code>W_E</code> (bottom row) never blooms. The circle structure shared across
+      these locations is the only object that matters for the prediction.
     </figcaption>
   </figure>
 
+  <h2>3. Build</h2>
+
+  <h3>3.1 The recipe</h3>
+
   <p>
-    The bloom is not local to one weight matrix. The same Fourier basis is shared across the
-    feedforward layers, the attention values, and the unembedding, and the same K-mode structure
-    shows up in all of them. The algorithm is a property of that shared basis, not of any single
-    component.
+    If §2 is right, I should be able to write down the algorithm and instantiate it as weights
+    without any gradient steps. The recipe in four steps:
   </p>
 
-  <h2>The same algorithm, built by hand</h2>
+  <ol>
+    <li><strong>Embed each token as its discrete log on a Fourier pair.</strong> For symbol
+        <code>x</code> with <code>l = log_g(x)</code>, set
+        <code>E[x] = (cos K·l, sin K·l)</code> along chosen subspace coordinates.</li>
+    <li><strong>Attention routes the values from positions <code>a</code> and <code>b</code> to the
+        prediction slot:</strong> a fixed pattern, no learning.</li>
+    <li><strong>FFN1 multiplies the Fourier pairs into <code>cos K·(lₐ − l_b)</code></strong> via the
+        cosine-difference identity
+        <code>cos K·lₐ · cos K·l_b + sin K·lₐ · sin K·l_b = cos K·(lₐ − l_b)</code>. The SwiGLU gate
+        is set so the multiplied terms land in the residual stream with the right sign.</li>
+    <li><strong><code>W_U</code> reads the coordinates as per-class logits.</strong> Each output
+        row <code>c</code> equals its own Fourier coordinates; the inner product with the residual
+        stream picks out class <code>c</code> whenever
+        <code>lₐ − l_b ≡ l_c (mod 96)</code>, i.e. whenever <code>a · b⁻¹ ≡ c (mod 97)</code>.</li>
+  </ol>
 
   <p>
-    Once the algorithm is this explicit, the next thing to try is to write it by hand. The recipe
-    has four steps. The embedding carries each token's discrete logarithm as a Fourier pair
-    <i>(cos K·l, sin K·l)</i>. The attention routes the values from positions <i>a</i> and
-    <i>b</i> into the prediction slot. The FFN1 multiplies the two Fourier pairs into
-    <i>cos K·(l<sub>a</sub> − l<sub>b</sub>)</i>. And <code>W_U</code> reads those coordinates out
-    as per-class logits.
+    That is the whole algorithm. <strong>One head with one frequency, plus a second harmonic to
+    disambiguate at the Nyquist limit.</strong>
   </p>
 
+  <h3>3.2 The reconstruction</h3>
+
   <p>
-    There is no training step. Every weight is set by hand from the recipe above.
+    The recipe is a 90-line Python script that builds the state dict, loads it into the same
+    architecture, and evaluates on all 9216 (a, b) pairs.
   </p>
 
   <div class="numbers">
@@ -438,12 +543,14 @@
   </div>
 
   <p>
-    The hand-built network solves the task at machine precision. This is about as close to a
-    constructive proof as mechanistic interpretation gets: if you can hand-assemble a working model
-    from the components identified in the trained one, those components are not just a hypothesis
-    about how the trained model works — they are enough to run the task on their own. The trained
-    model and the hand-built model are doing the same computation in two different presentations:
-    one noisy and over-parameterized, the other minimal.
+    There are <strong>no learned weights</strong> and <strong>no training loop</strong>; the
+    accuracy is 100% because <strong>the geometry is exact</strong>.
+  </p>
+
+  <p>
+    This is <strong>the falsifiability anchor</strong>. If §2 was wrong about which components share
+    the basis, which harmonics matter, or how the FFN composes the multiplication, the script would
+    not print 100%, but it actually does.
   </p>
 
   <div class="reproduce">
@@ -463,29 +570,73 @@ Running through 9216 (a, b) pairs...
   No training. Just the algorithm written into the weights.</span></pre>
   </div>
 
-  <h2>Steering by walking the knot</h2>
+  <h2>4. Steer</h2>
 
   <p>
-    If the algorithm lives on the knot, changing the network's prediction is a geometric move. To
-    shift the prediction from class <i>c</i> to class <i>c · g<sup>Δ</sup></i>, you can walk Δ beads
-    along the curve. Every position on that walk corresponds to a real class that the model already
-    represents, and the head reads the correct logit at each one.
+    The handcrafted result is one half of the test. The other half: does the trained model actually
+    use the geometry I observed, or is the bloom incidental, something training produced that the
+    model could happily ignore in favor of some other internal route?
   </p>
 
   <p>
-    The standard alternative, used in most activation-steering papers, is to add a single difference
-    vector to the hidden state: target class minus source class. On a curve, that vector is a
-    <em>chord</em> through the knot's interior. The interior of the cube contains no classes; it is
-    the region the model never produces during normal operation. For small Δ the chord stays close
-    to the curve and the steering still works most of the time. For Δ approaching 48 (the Nyquist),
-    the chord cuts straight across the cube and lands in a region of the residual stream the model
-    has no representation for.
+    Three interventions, all applied at the last layer of the residual stream, all on the trained
+    (not handcrafted) model.
+  </p>
+
+  <h3>4.1 Dictation: 100%</h3>
+
+  <p>
+    Replace the hidden state at the last position with the mean activation over inputs that produce
+    target class <code>t</code>. Discard everything the model computed and write the answer in
+    directly.
+  </p>
+
+  <p><strong>100% across all 96 targets, every seed.</strong></p>
+
+  <p>
+    What matters is that the manifold endpoints work as substitutes at all. If the geometry was
+    noise, the dictated state would land somewhere the unembedding can not read.
+  </p>
+
+  <h3>4.2 Walking the knot: 96.7%</h3>
+
+  <p>
+    Pick a source class <code>c</code> and a shift <code>Δ</code>. Rotate the hidden state along the
+    Fourier circles by <code>2π·K·Δ / 96</code> in each (cos, sin) pair, applied as a rigid rotation
+    in the chosen subspace. The model produces <code>c + Δ (mod 96)</code>.
   </p>
 
   <p>
-    The second visualization lets you pick a Δ and compare the two paths. The manifold walk is the
-    coloured arc; the linear chord is the faint straight line. As you increase Δ, the chord pulls
-    visibly further away from the curve.
+    <strong>Mean hit rate: 96.7%</strong> across seeds, across
+    <code>Δ ∈ {±1, ±2, …, ±48}</code>, including the Nyquist edge.
+  </p>
+
+  <p>
+    Walking moves along the structure the model built. The 96.7% across the full Δ range confirms
+    the knot is the model's actual readout surface.
+  </p>
+
+  <h3>4.3 Linear chord: ~50%</h3>
+
+  <p>
+    The standard activation-steering baseline. Compute <code>v_t − v_c</code> between two manifold
+    points, scale it to <code>Δ</code>, add it to the residual stream. This is the right thing to
+    do if the model is roughly linear and the manifold is roughly flat.
+  </p>
+
+  <p>
+    <strong>About 50% on average</strong>, falling off sharply past <code>Δ = 4–5</code>.
+  </p>
+
+  <p>
+    It fails because the manifold is not flat. The chord cuts a straight line through interior 3D
+    space that the model never visited during training, regions where the unembedding has no
+    consistent readout.
+  </p>
+
+  <p>
+    <strong>Walking stays on the curve, dictation lands on it, and the chord cuts off into interior
+    space where the unembedding has no readout.</strong>
   </p>
 
   <div class="embed">
@@ -497,50 +648,125 @@ Running through 9216 (a, b) pairs...
     </div>
   </div>
 
+  <h2>5. What the knot means</h2>
+
   <p>
-    The cost of routing through the interior shows up in the hit rates.
+    The network grows a <strong>geometric object whose shape is the function</strong>.
   </p>
 
-  <div class="numbers">
-    <div class="row">
-      <span class="label">Dictation: replace hidden state with the manifold point at target Δ</span>
-      <span class="val accent">100%</span>
-    </div>
-    <div class="row">
-      <span class="label">Walking: rotate hidden state along the K-mode Fourier circles by 2π·K·Δ/96</span>
-      <span class="val">96.7%</span>
-    </div>
-    <div class="row">
-      <span class="label">Linear chord: add the difference vector once, scaled to Δ</span>
-      <span class="val">≈ 50%</span>
-    </div>
-  </div>
+  <p>Predictions are positions on the object and interventions are motions across it.</p>
 
   <p>
-    Dictation overwrites the hidden state with the manifold point at the target class and asks the
-    head to read it. The head reads the right class on every input. Walking is the gentler version:
-    it keeps the hidden state mostly intact and only rotates the Fourier phases by 2π·K·Δ/96. It
-    hits the requested class on every Δ across all ten seeds, with a mean hit rate of 96.7%. The
-    linear chord caps out around 50%, and there is no obvious tuning that fixes it; the curve the
-    model uses to represent class shifts is not a straight line, so a chord is the wrong object to
-    push along it.
+    This reframes the classical grokking question <em>"when does the model generalise?"</em> as
+    <em>"when does the geometric object finish forming?"</em>. The handcrafted model is the limit
+    case: instantiate the geometry exactly and you get 100% without training.
+    <strong>"Generalisation" comes for free with the geometry.</strong> The bloom is the model
+    crystallising into that limit.
   </p>
 
-  <h2>What the knot means</h2>
+  <h2>6. What this is not</h2>
+
+  <p>A few things this post does not claim:</p>
+
+  <ul>
+    <li><strong>One head, one task, one modulus</strong> — this is not a claim about transformers in
+        general.</li>
+    <li>Modular addition has 1D Fourier geometry, max and parity have geometries that are not
+        Fourier at all. <strong>Part 2</strong> shows four such tasks in one shared head, and the
+        manifolds are perpendicular rather than the same circle.</li>
+    <li><strong>Walking does not always beat the chord.</strong> For small <code>Δ</code> the chord
+        approximates the curve and gets close to 100%; the gap opens at large <code>Δ</code>, where
+        the curvature dominates.</li>
+    <li><strong>The argument about steering large LLMs is not finished here.</strong> A separate
+        experiment ports manifold dictation and steering to a 7B model.</li>
+    <li>Hand-built grokked transformers go back to <em>Nanda et al. (2023)</em>. The
+        <strong>3D-knot framing</strong> and the <strong>perpendicular-manifolds finding</strong>
+        for multi-task are, I think, new, the broader insight that grokking produces structured
+        internal representations has been around for years.</li>
+  </ul>
+
+  <h2>7. What's next</h2>
+
+  <ul>
+    <li><strong>Part 2: "Follow the Manifold."</strong> Same three tests on four tasks (division,
+        addition, max, parity) sharing one transformer head with <code>P = 149</code>. Chord-walk
+        hit rate <strong>≥ 97%</strong> on all four tasks across <code>Δ ∈ ±100</code>; dictation
+        <strong>100%</strong> on every target class for all four tasks, linear chord at chance for
+        the three high-dimensional tasks. The four manifolds turn out to be
+        <strong>perpendicular</strong> — they coexist in one head and don't interfere.</li>
+    <li><strong>Part 3:</strong> Grokking in general.</li>
+    <li><strong>Part 4:</strong> Manifold transfer to a real LLM.</li>
+  </ul>
 
   <p>
-    The bloom and the steering point at the same thing. When a network solves a problem with this
-    much structure, it does not learn a function and then store it somewhere; it grows a geometric
-    object whose shape encodes the function. After that, every prediction is a position on the
-    object, every intervention is a motion across it, and questions about accuracy, steering, and
-    interpretation become questions about geometry.
+    <strong>Across all four:</strong> algorithms live as manifolds in residual space, learning grows
+    those manifolds, and the geometry gives both a falsifiable account of what was learned and a
+    productive operation on the trained model. This first post is the smallest case where I can show
+    <strong>observe, build, steer</strong> on a single page.
+  </p>
+
+  <h2>8. Reproducibility</h2>
+
+  <p>Five notebooks reproduce everything in this post:</p>
+
+  <ul>
+    <li><strong>Training slowmo visualisation</strong> — the bloom timeline in §2.2.</li>
+    <li><strong>Multi-location bloom measurement</strong> — the 5-location × 10-checkpoint panel in §2.3.</li>
+    <li><strong>Hand-crafted weight construction</strong> — builds the state dict in §3 and verifies
+        on all 9216 pairs.</li>
+    <li><strong><code>verify_handcrafted.py</code></strong> — 90-line standalone script. Loads the
+        handcrafted weights, runs the model on all 9216 (a, b) input pairs, compares each prediction
+        against the ground-truth <code>a · b⁻¹ mod 97</code>, and prints the count of matches.
+        Output should be <code>9216/9216 correct = 100.0000%</code>.</li>
+    <li><strong>Steering</strong> — runs the dictation, walking, chord numbers in §4 plus additional
+        baselines.</li>
+  </ul>
+
+  <p>
+    Plus JSON data (circle quality, neuron purities, hit rates), the trained state dict, and the
+    handcrafted state dict.
   </p>
 
   <p>
-    For modular division the attractor is a 3D Fourier knot, small enough to render and fly through.
-    For larger tasks the manifolds will be higher-dimensional and harder to picture, but the
-    underlying claim is the same: finding the manifold means finding the algorithm, and the only
-    interventions that work cleanly are the ones the manifold permits.
+    The figures on the page are what the notebooks produce. There are no separately cleaned datasets
+    or hand-picked runs.
+  </p>
+
+  <p>
+    Interactive version with the animated figures and the steering slider:
+    <a href="https://nick-yudin.github.io/manifold_features/fourier-bloom/">nick-yudin.github.io/manifold_features/fourier-bloom/</a>.
+  </p>
+
+  <h2>9. Acknowledgments</h2>
+
+  <p>Independent work. Conceptual debts:</p>
+
+  <ul>
+    <li><strong>Grokking phenomenology.</strong> Power, Burda, Edwards, Babuschkin, Misra (2022),
+        <em>Grokking: Generalization Beyond Overfitting on Small Algorithmic Datasets</em>,
+        <a href="https://arxiv.org/abs/2201.02177">arXiv:2201.02177</a>.</li>
+    <li><strong>Mechanistic progress measures + Fourier prediction.</strong> Nanda, Chan, Lieberum,
+        Smith, Steinhardt (2023), <em>Progress Measures for Grokking via Mechanistic Interpretability</em>,
+        ICLR 2023, <a href="https://arxiv.org/abs/2301.05217">arXiv:2301.05217</a>.</li>
+    <li><strong>Activation steering baseline.</strong> Turner, Thiergart, Leech, Udell, Vazquez,
+        Mini, MacDiarmid (2023), <em>Activation Addition: Steering Language Models Without
+        Optimization</em>, <a href="https://arxiv.org/abs/2308.10248">arXiv:2308.10248</a>; and Zou
+        et al. (2023), <em>Representation Engineering: A Top-Down Approach to AI Transparency</em>,
+        <a href="https://arxiv.org/abs/2310.01405">arXiv:2310.01405</a>.</li>
+    <li><strong>Circuits tradition.</strong> Olah, Cammarata, Schubert, Goh, Petrov, Carter (2020),
+        <em>Zoom In: An Introduction to Circuits</em>, Distill,
+        <a href="https://distill.pub/2020/circuits/zoom-in">distill.pub/2020/circuits/zoom-in</a>.</li>
+    <li><strong>Parameter decomposition / SPD framing.</strong> Braun, Bushnaq, Heimersheim,
+        Goldowsky-Dill, Sharkey (2025), <em>Interpretability in Parameter Space: Minimizing
+        Mechanistic Description Length with Attribution-based Parameter Decomposition</em>,
+        <a href="https://arxiv.org/abs/2501.14926">arXiv:2501.14926</a>; follow-up Bushnaq et al.
+        (2025), <em>Stochastic Parameter Decomposition</em>,
+        <a href="https://arxiv.org/abs/2506.20790">arXiv:2506.20790</a> (Apollo Research / Goodfire).</li>
+  </ul>
+
+  <p>
+    I prefer to state the limitations clearly in §6 rather than overstate the claims.
+    <strong>Critique of that section is especially welcome.</strong>
   </p>
 
   <footer>
