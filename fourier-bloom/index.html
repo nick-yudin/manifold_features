@@ -256,7 +256,13 @@
     transform: translateX(-50%);
   }
   figure img { display: block; width: 100%; height: auto; border: 1px solid var(--rule); border-radius: 4px; background: white; }
-  figure.hero { margin-top: 24px; margin-bottom: 48px; }
+  /* Hero: smaller than full-width — stays inside the article column */
+  figure.hero {
+    margin: 24px auto 48px;
+    width: 100%;
+    max-width: 640px;
+    transform: none;
+  }
   figure.hero img { border: none; border-radius: 6px; background: transparent; }
   figcaption {
     font-size: 13.5px;
