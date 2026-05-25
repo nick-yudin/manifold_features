@@ -13,7 +13,7 @@ A series of interactive longform notes on how small transformers grow algorithms
 | Part 1 | [Inside the grokked manifold of mod-97 division](fourier-bloom/) — observe, build, steer | published | [open](https://nick-yudin.github.io/manifold_features/fourier-bloom/) |
 | Part 2 | [Four algorithms in one tiny brain](four-algorithms/) — div, add, max, parity in one shared head | published | [open](https://nick-yudin.github.io/manifold_features/four-algorithms/) |
 | Part 3 | Grokking, in general | coming | — |
-| Part 4 | Manifold-Anchored Fine-Tuning (MAFT) — transfer to Qwen 7B | coming | — |
+| Part 4 | [Algorithms in a real LLM (Llama 3.1 8B)](algorithms-in-real-LLMs/) | coming | — |
 
 ## Repository layout
 
@@ -28,11 +28,16 @@ manifold_features/
 │   ├── handcrafted_state_dict.pt
 │   ├── notebooks/
 │   └── data/
-└── four-algorithms/       Part 2 — four-task transformer (P=149)
+├── four-algorithms/       Part 2 — four-task transformer (P=149)
+│   ├── index.html         long-form note
+│   ├── build.py
+│   ├── data.json, walk_results.json, dictation_results.json, …
+│   ├── notebooks/         standalone Jupyter notebooks
+│   └── README.md          per-section guide
+└── algorithms-in-real-LLMs/  Part 4 — Llama 3.1 8B at scale
     ├── index.html         long-form note
-    ├── build.py
-    ├── data.json, walk_results.json, dictation_results.json, …
-    ├── notebooks/         standalone Jupyter notebooks
+    ├── fig0–fig5*.png     inline figures
+    ├── notebooks/         four standalone Jupyter notebooks
     └── README.md          per-section guide
 ```
 
@@ -53,7 +58,7 @@ Quick starts:
 
 **Part 3 (coming).** What the geometry says about grokking as a phenomenon — what the gauge is across seeds, what is and isn't a "true" learned algorithm, how this reframes the memorization/generalization story.
 
-**Part 4 (coming).** **MAFT — Manifold-Anchored Fine-Tuning.** The same dictation operation, applied to a 7B base LLM, lets the model's internal manifold supervise its own fine-tuning. Early result: 47.8% → 88.9% on mult mod 11 with 8-bit AdamW on a single A100.
+**Part 4 (coming).** **Algorithms in a real LLM.** Llama 3.1 8B already runs Goodfire's six-clock base-10 calculator at L=18 and uses it as a *meta-algorithm* serving arithmetic, weekdays, months, and hours through one shared circuit. Three layers of redundancy (within-residual, multi-layer, beyond-Fourier). Single-layer manifold walking through centroids at L=18 reaches 60-65% hit rate on cross-task targets and beats both Goodfire's α=10 default and the linear-chord baseline.
 
 ## Citation
 

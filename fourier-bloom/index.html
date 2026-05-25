@@ -256,6 +256,8 @@
     transform: translateX(-50%);
   }
   figure img { display: block; width: 100%; height: auto; border: 1px solid var(--rule); border-radius: 4px; background: white; }
+  figure.hero { margin-top: 24px; margin-bottom: 48px; }
+  figure.hero img { border: none; border-radius: 6px; background: transparent; }
   figcaption {
     font-size: 13.5px;
     line-height: 1.55;
@@ -316,7 +318,7 @@
   <span class="current">Part 1 · Single algorithm</span>
   <a href="../four-algorithms/">Part 2 · Four algorithms →</a>
   <span class="disabled">Part 3 · Grokking · coming</span>
-  <span class="disabled">Part 4 · Transfer to LLMs · coming</span>
+  <a href="../algorithms-in-real-LLMs/">Part 4 · Algorithms in real LLMs</a>
 </nav>
 
 <article>
@@ -335,12 +337,22 @@
     </p>
   </header>
 
+  <figure class="hero">
+    <img src="fourier_bloom_hero.gif" alt="Animation of the trained 2-block transformer walking its 3D Fourier knot. As the chord shift Δ slides across the 96 remainders the orange path traces the knot smoothly (96.7% hit rate); a blue dashed straight line cuts across the empty interior of the knot (about 50% hit rate). N = 96, K₁ = 11, K₂ = 17.">
+    <figcaption>
+      Walking the knot vs. cutting across it. The orange curve is the chord walk along the
+      Fourier manifold the model actually grew during grokking. The blue dashed line is the
+      straight chord through 384-dimensional residual space between the same two endpoints. Same
+      start, same end, very different territory in between.
+    </figcaption>
+  </figure>
+
   <p>
     One task, one model: modular division mod 97 in a 2-block transformer (d=384). The observation
     of manifold formation every single step, hand-built reconstruction demonstrating precision as a
     proof that I understood it, and finally walking along the manifold, steering the answer. The
     next post tests four tasks in one shared head, and the one after that ports the operation to
-    Qwen 7B.
+    Llama 3.1 8B.
   </p>
 
   <p>

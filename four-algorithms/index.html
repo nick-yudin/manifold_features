@@ -133,6 +133,16 @@
     border-radius: 10px;
     padding: 20px;
   }
+  .figure.hero { margin-top: 24px; margin-bottom: 48px; }
+  .figure.hero .figure-frame { background: transparent; border: none; padding: 0; }
+  .figure.hero img { width: 100%; height: auto; display: block;
+                      border-radius: 6px; background: transparent; }
+  .figure.hero figcaption {
+    font-size: 13.5px; line-height: 1.55; color: var(--muted);
+    font-style: italic; margin-top: 12px;
+    max-width: 720px; margin-left: auto; margin-right: auto;
+    text-align: left; padding: 0 4px;
+  }
 
   /* —— Bloom scene —— */
   .bloom-grid { display: grid; grid-template-columns: repeat(4, 1fr);
@@ -264,7 +274,7 @@
   <a href="../fourier-bloom/">← Part 1 · Single algorithm</a>
   <span class="current">Part 2 · Four algorithms</span>
   <span class="disabled">Part 3 · Grokking · coming</span>
-  <span class="disabled">Part 4 · Transfer to LLMs · coming</span>
+  <a href="../algorithms-in-real-LLMs/">Part 4 · Algorithms in real LLMs</a>
 </nav>
 
 <article>
@@ -280,6 +290,18 @@
       <span>Mechanistic interpretability — note 2</span>
     </p>
   </header>
+
+  <div class="figure hero">
+    <div class="figure-frame">
+      <img src="four_algorithms_hero.gif" alt="Animation of the same 4.8M-parameter transformer learning four tasks at once. Four panels track the residual-stream projection per task — div, add, max, parity — across training. Each task grows into its own shape at its own step.">
+      <figcaption>
+        Four tasks, one shared body. As training progresses, each panel reveals the geometric
+        object the model used to solve it: a Lissajous knot for div, a circle for add, a band
+        for max, and a two-cluster slab for parity. Same residual stream, different shapes at
+        different times.
+      </figcaption>
+    </div>
+  </div>
 
 <p>
   In the <a href="../fourier-bloom/">previous note</a> I trained a small model on modular

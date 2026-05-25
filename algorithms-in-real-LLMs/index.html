@@ -1,0 +1,755 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Algorithms in a real LLM: same patterns at scale, different control surface</title>
+<meta name="description" content="Part 4 of the series. Stepping from a 4.8M-parameter toy into Llama-3.1-8B. The Fourier algorithm motif survives the jump; the big model over-insures it with multiple redundant copies and non-Fourier fallbacks at multiple layers. Aggressive control breaks the bigger model. Walking the manifold does not.">
+<meta property="og:title" content="Algorithms in a real LLM: same patterns at scale, different control surface">
+<meta property="og:description" content="Part 4: from a 4.8M-parameter toy into Llama-3.1-8B. The Fourier algorithm motif survives; the big model over-insures it with redundancy. Aggressive control breaks the big model; walking the manifold does not.">
+<meta property="og:type" content="article">
+<meta property="og:url" content="https://nick-yudin.github.io/manifold_features/algorithms-in-real-llms/">
+<meta property="og:image" content="https://nick-yudin.github.io/manifold_features/llama/fig1_goodfire_weekdays_steering.png">
+<meta property="og:site_name" content="Manifold Features">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Algorithms in a real LLM: same patterns at scale, different control surface">
+<meta name="twitter:description" content="Part 4: from 4.8M-param toy to Llama-3.1-8B. Fourier algorithm motif survives. Aggressive control breaks the big model; walking the manifold does not.">
+<meta name="twitter:image" content="https://nick-yudin.github.io/manifold_features/llama/fig1_goodfire_weekdays_steering.png">
+<meta name="twitter:creator" content="@Nikolay_Yudin_">
+<style>
+  :root {
+    --bg: #f5f1e8;
+    --ink: #1a1a1a;
+    --soft-ink: #2c2a23;
+    --muted: #6b6657;
+    --faint: #aba89a;
+    --rule: rgba(0,0,0,0.10);
+    --rule-soft: rgba(0,0,0,0.06);
+    --accent: #c25540;
+    --accent-soft: rgba(194,85,64,0.10);
+    --panel: rgba(255,255,253,0.55);
+  }
+  * { box-sizing: border-box; }
+  html { -webkit-text-size-adjust: 100%; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--ink);
+    font-family: 'Iowan Old Style', 'Palatino Linotype', 'Palatino', 'P052', 'URW Palladio L', Georgia, serif;
+    font-size: 18px;
+    line-height: 1.7;
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+  }
+  ::selection { background: var(--accent-soft); }
+
+  article {
+    max-width: 720px;
+    margin: 0 auto;
+    padding: clamp(48px, 7vh, 96px) clamp(20px, 4vw, 40px) 120px;
+  }
+
+  header.title-block {
+    margin-bottom: clamp(40px, 6vh, 64px);
+    padding-bottom: 32px;
+    border-bottom: 1px solid var(--rule);
+  }
+  h1.title {
+    font-family: 'Iowan Old Style', 'Palatino Linotype', Georgia, serif;
+    font-size: clamp(36px, 4.6vw, 52px);
+    line-height: 1.12;
+    font-weight: 500;
+    letter-spacing: -0.01em;
+    margin: 0 0 18px;
+    color: var(--ink);
+  }
+  .subtitle {
+    font-family: 'Iowan Old Style', 'Palatino Linotype', Georgia, serif;
+    font-size: clamp(18px, 2vw, 22px);
+    line-height: 1.45;
+    color: var(--muted);
+    font-style: italic;
+    margin: 0 0 22px;
+  }
+  .meta {
+    font-family: ui-monospace, 'SF Mono', Menlo, monospace;
+    font-size: 12px;
+    color: var(--faint);
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    margin: 0;
+  }
+  .meta a { color: var(--muted); text-decoration: none; border-bottom: 1px solid var(--rule); }
+  .meta a:hover { color: var(--ink); border-color: var(--ink); }
+  .meta-sep { margin: 0 8px; color: var(--faint); }
+
+  h2 {
+    font-family: 'Iowan Old Style', 'Palatino Linotype', Georgia, serif;
+    font-size: 26px;
+    font-weight: 500;
+    line-height: 1.25;
+    margin: clamp(48px, 6vh, 72px) 0 18px;
+    color: var(--ink);
+    letter-spacing: -0.005em;
+  }
+  h3 {
+    font-family: 'Iowan Old Style', 'Palatino Linotype', Georgia, serif;
+    font-size: 19px;
+    font-weight: 500;
+    margin: 32px 0 10px;
+    color: var(--soft-ink);
+  }
+  p { margin: 0 0 18px; color: var(--soft-ink); }
+  em, i { font-style: italic; color: var(--ink); }
+  strong, b { font-weight: 600; color: var(--ink); }
+  a { color: var(--ink); text-decoration: none; border-bottom: 1px solid var(--rule); }
+  a:hover { border-color: var(--ink); }
+  code {
+    font-family: ui-monospace, 'SF Mono', Menlo, monospace;
+    font-size: 0.9em;
+    background: rgba(0,0,0,0.04);
+    padding: 1px 5px;
+    border-radius: 3px;
+    color: var(--soft-ink);
+  }
+  ul { margin: 0 0 18px; padding-left: 22px; color: var(--soft-ink); }
+  ul li { margin-bottom: 6px; }
+
+  .reframe {
+    margin: 28px 0;
+    padding: 18px 22px;
+    background: var(--accent-soft);
+    border-left: 3px solid var(--accent);
+    border-radius: 0 4px 4px 0;
+    font-family: 'Iowan Old Style', 'Palatino Linotype', Georgia, serif;
+    font-size: 18px;
+    line-height: 1.6;
+    color: var(--ink);
+    font-style: italic;
+  }
+  .reframe strong { color: var(--ink); font-style: normal; }
+
+  table.inline {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 18px 0 24px;
+    font-family: 'Iowan Old Style', 'Palatino Linotype', Georgia, serif;
+    font-size: 15px;
+  }
+  table.inline th, table.inline td {
+    padding: 8px 12px;
+    border-bottom: 1px solid var(--rule-soft);
+    text-align: left;
+    color: var(--soft-ink);
+  }
+  table.inline th {
+    color: var(--muted);
+    font-weight: 500;
+    font-size: 13px;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    border-bottom: 1px solid var(--rule);
+  }
+  table.inline td.num {
+    font-family: ui-monospace, 'SF Mono', Menlo, monospace;
+    font-size: 14px;
+  }
+  table.inline td.hit { color: var(--accent); font-weight: 600; }
+
+  figure {
+    margin: 36px 0;
+    width: calc(100vw - 40px);
+    max-width: 1100px;
+    margin-left: 50%;
+    transform: translateX(-50%);
+  }
+  figure img { display: block; width: 100%; height: auto; border: 1px solid var(--rule); border-radius: 4px; background: white; }
+  /* Narrow figure: stays inside the article column (no viewport breakout) */
+  figure.narrow {
+    width: 100%;
+    max-width: 560px;
+    margin: 36px auto;
+    transform: none;
+  }
+  /* Hero figure: wide, sits right under the title */
+  figure.hero {
+    margin-top: 24px;
+    margin-bottom: 48px;
+  }
+  figure.hero img {
+    border: none;
+    border-radius: 6px;
+    background: transparent;
+  }
+  figcaption {
+    font-size: 13.5px;
+    line-height: 1.55;
+    color: var(--muted);
+    font-style: italic;
+    margin-top: 12px;
+    padding: 0 4px;
+    max-width: 720px;
+    margin-left: auto;
+    margin-right: auto;
+    text-align: left;
+  }
+  figcaption .lab {
+    font-family: ui-monospace, 'SF Mono', Menlo, monospace;
+    font-style: normal;
+    color: var(--soft-ink);
+  }
+  @media (max-width: 720px) {
+    figure { width: 100vw; }
+  }
+
+  footer {
+    margin-top: clamp(64px, 8vh, 96px);
+    padding-top: 28px;
+    border-top: 1px solid var(--rule);
+    font-size: 13px;
+    color: var(--muted);
+    line-height: 1.6;
+  }
+  footer p { margin-bottom: 8px; color: var(--muted); font-size: 13px; }
+  footer a { color: var(--muted); border-color: var(--rule); }
+  footer a:hover { color: var(--ink); }
+
+  .series-nav {
+    max-width: 720px; margin: 0 auto;
+    padding: 20px clamp(20px, 4vw, 40px) 0;
+    display: flex; flex-wrap: wrap; gap: 8px;
+    font-family: ui-monospace, 'SF Mono', Menlo, monospace;
+    font-size: 11px; letter-spacing: 0.06em;
+    text-transform: uppercase;
+  }
+  .series-nav a, .series-nav span {
+    padding: 5px 11px; border-radius: 4px; text-decoration: none;
+  }
+  .series-nav a { color: var(--accent); border: 1px solid var(--rule); }
+  .series-nav a:hover { background: rgba(194, 85, 64, 0.10); }
+  .series-nav .current { color: var(--ink);
+                          background: rgba(194, 85, 64, 0.10);
+                          border: 1px solid var(--accent); }
+  .series-nav .disabled { color: var(--faint); border: 1px dashed var(--rule); }
+</style>
+</head>
+<body>
+
+<nav class="series-nav">
+  <a href="../fourier-bloom/">← Part 1 · Single algorithm</a>
+  <a href="../four-algorithms/">Part 2 · Four algorithms</a>
+  <a href="../grokking/">Part 3 · Grokking</a>
+  <span class="current">Part 4 · Algorithms in real LLMs</span>
+</nav>
+
+<article>
+
+  <header class="title-block">
+    <h1 class="title">Algorithms in a real LLM</h1>
+    <p class="subtitle">Stepping from a 4.8M-parameter toy into Llama-3.1-8B. Same patterns at scale, different control surface.</p>
+    <p class="meta">
+      <a href="https://github.com/nick-yudin">Nikolay Yudin</a>
+      <span class="meta-sep">·</span>
+      <span>May 2026</span>
+      <span class="meta-sep">·</span>
+      <a href="https://twitter.com/Nikolay_Yudin_">@Nikolay_Yudin_</a>
+      <span class="meta-sep">·</span>
+      <span>Independent research</span>
+    </p>
+  </header>
+
+  <figure class="hero">
+    <img src="algorithms_in_real_llms_hero.gif"
+         alt="Animation of P(day) bar chart over 50 steps as the residual at L=18 of Llama-3.1-8B is replaced by sequential per-class centroids walking from Monday to Friday. The current target bar tracks the walk; non-target bars stay near zero.">
+    <figcaption>
+      A 50-step walk along the L=18 weekday manifold of Llama-3.1-8B. At each step
+      the residual is replaced by the per-class centroid for the next day, and the
+      model's predicted distribution over weekday tokens shifts cleanly with it.
+      Same operation as Part 1's chord walk, scaled up from a 4.8M toy to a real
+      8B model.
+    </figcaption>
+  </figure>
+
+  <p>
+    Three notes in. <a href="../fourier-bloom/">The first</a> was a 4.8 million-parameter toy learning modular division on a
+    97-position clock. We found that the algorithm it built was a knot of twelve Fourier circles in
+    its output projection. <a href="../four-algorithms/">The second</a> trained the same toy on four operations at once — div, add,
+    max, parity. We found that each task carved its own privileged basis out of one shared body.
+    <a href="../grokking/">The third</a> stepped back and asked what grokking actually is, concluding that it is
+    algorithm formation under low pressure, not a memorisation-to-generalisation transition.
+  </p>
+
+  <p>
+    Does any of this carry over to a real general-purpose LLM? Often the answer is no. The training
+    regime at scale is fundamentally different, and crucially we no longer get to train the model
+    ourselves — we have to work with whichever checkpoints are publicly available. Our experiments
+    use Llama-3.1-8B, a medium-small general-purpose open-weights model from Meta. We chose it for
+    three reasons: it is openly available, it is computationally tractable, and Goodfire published
+    two 2026 papers on this exact model that we will lean on heavily.
+  </p>
+
+  <p>
+    The short answer: real LLMs build algorithms too — just not the same ones we found in the toy.
+    They are the same kind of mathematical object, they are also stored as several redundant copies
+    at multiple layers, and controlling them requires a fundamentally different, much gentler
+    approach than what worked at toy scale.
+  </p>
+
+  <h2>1. The bigger brain</h2>
+
+  <p>
+    Llama-3.1-8B has 32 layers, each carrying a residual stream of 4096 numbers, and about 8
+    billion weights in total. Compared to the two-layer 384-dim toy of the earlier notes, that is a
+    1,700-fold scaling. The model was trained on a generic web mixture, not on any single math task,
+    and we have no reason to assume its arithmetic capability is anything more than incidental.
+  </p>
+
+  <figure>
+    <img src="fig_scale_compare.png" alt="Side-by-side schematic of the toy (2 blocks, d=384, 4.8 million parameters) and Llama-3.1-8B (32 blocks, d=4096, 8 billion parameters). Layer 18 of Llama is highlighted; layers 17-22 are softly shaded as the ablation-causal band.">
+    <figcaption>
+      <span class="lab">Fig. 1.</span> The jump in scale between the toy and Llama. Two blocks
+      versus thirty-two. Layer 18 — where the shared base-10 calculator lives — is highlighted; the
+      surrounding L=17 to L=22 band carries the bulk of the ablation-causal signal documented in
+      Section 4.
+    </figcaption>
+  </figure>
+
+  <h2>2. First — do the toy's algorithms transfer?</h2>
+
+  <p>
+    Before proceeding with complex experiments we asked the naive question. If the toy of Part 1 built
+    clean dlog-Fourier circles for div mod 97, are those same circles present in Llama? This is
+    cheap to check with probes.
+  </p>
+
+  <p>
+    For each prime <code>P ∈ {3, 5, 7, 11, 13, 23, 97}</code> we built all triples
+    <code>(a, b, c)</code> where <code>c = a · b⁻¹ mod P</code> — modular division via Fermat's
+    little theorem. This is exactly the toy's task from Part 1. Modular division has no trivial
+    fallback: the model cannot answer correctly by simply outputting <code>a + b</code> or copying
+    one of the inputs. It has to understand modular inverses.
+  </p>
+
+  <figure class="narrow">
+    <img src="fig0_toy_algorithm_absent.png" alt="Llama baseline accuracy drops from 100% at P=3 to 3% at P=97, while chance drops from 0.50 to 0.01.">
+    <figcaption>
+      <span class="lab">Fig. 2.</span>
+      Baseline accuracy drops from 100% at P=3 (trivial) to 3% at P=97. Llama cannot perform
+      modular inversion for non-trivial primes.
+    </figcaption>
+  </figure>
+
+  <p>
+    The picture is unambiguous. Baseline accuracy falls from 100% at P=3 (trivial: only one nontrivial
+    divisor) to 56% at P=5, and down to 3% at P=97. No algorithm in the residual, no correct
+    answers at the output.
+  </p>
+
+  <p>
+    The difference comes from the training regime. The toy was trained on one task at high weight
+    decay over many thousands of steps, all the way to grokking. The compression pressure was
+    maximal — the only useful structure available was the one solving div mod 97, so that is what
+    the network discovered. Llama was trained on the entire English web plus code and other
+    corpora, at much lower effective per-task weight decay (gradient signal for any one task is
+    diluted by everything else). The reward for a task-specific algorithm targeting an arbitrary
+    prime modulus was small. Whatever the model built had to be a more universal counting
+    primitive — something that pays off across billions of tokens, not on one synthetic task.
+  </p>
+
+  <p>
+    But which primitive, exactly? Llama clearly computes something: it adds, it counts days, it
+    answers questions about months. There is algorithmic structure in there, just not the toy's
+    specific one. For tasks that genuinely appear during pre-training — addition, cyclic concepts
+    like days of the week, months, clock hours — the model might well have built an algorithm of
+    the same structural kind as the toy's, just operating on a different cyclic structure.
+    Goodfire's two 2026 papers identify exactly such an algorithm. We checked.
+  </p>
+
+  <h2>3. What Goodfire found</h2>
+
+  <p>
+    Ask Llama-3.1-8B <code>3+7=</code> and it answers <code>10</code>. Ask
+    <code>Q: What day is six days after Sunday?\nA:</code> and it answers <code>Saturday</code>.
+    It gets <strong>69%</strong> of weekday-arithmetic prompts right zero-shot,
+    <strong>72%</strong> of months-arithmetic, <strong>92%</strong> of small additions. Something
+    is clearly doing the work.
+  </p>
+
+  <p>
+    Goodfire's <a href="https://arxiv.org/abs/2605.01148">first 2026 paper</a>, "Arithmetic in
+    the Wild", asked a precise version of the question. They trained pairs of linear probes
+    on the residual stream of Llama-3.1-8B for the sine and cosine of an integer encoded modulo
+    <code>T</code>, sweeping the period <code>T</code>. They found that at <strong>layer 18</strong>,
+    six probes — one each for periods <code>T ∈ {2, 5, 10, 20, 50, 100}</code> — all hit joint
+    <code>R² &gt; 0.93</code>. The same six periods are the factor system of 100. The same six
+    probes, trained only on addition prompts, also work on weekday and month prompts. That is the
+    Goodfire <em>calculator</em>: six Fourier dials at one layer, used as a base-10 counting circuit
+    across multiple arithmetic tasks.
+  </p>
+
+  <p>
+    We reproduced this independently in our own code with sklearn Ridge probes. Same six periods,
+    same layer, comparable R². The steering experiment also reproduces. It rotates the probe planes
+    to encode a counterfactual sum, runs the forward pass, and checks whether the model's answer
+    follows. On native addition we get a 60% argmax hit rate against 4% chance. On weekdays as a
+    cross-task target the rate is 55%, and on months 65%.
+  </p>
+
+  <figure>
+    <img src="fig1_goodfire_weekdays_steering.png" alt="Heatmap of P(day) versus target sum for Goodfire's Fourier rotation steering on Llama-3.1-8B weekday Q/A. Clean diagonal, hit rates above chance for every day.">
+    <figcaption>
+      <span class="lab">Fig. 3.</span> Goodfire's six-probe rotation steering on Llama-3.1-8B,
+      weekday Q/A. Left: heatmap of <code>P(day) | target_sum</code>, averaged over 68 baseline-correct
+      prompts. Right: argmax hit-rate per target sum. Mean 55%, vs 14% chance. Probes trained only on
+      addition prompts, applied to weekday prompts — the same circuit handles both.
+    </figcaption>
+  </figure>
+
+  <p>
+    So the calculator is real, it lives at layer 18, and it is shared across counting tasks. That
+    matches the toy story closely. In the toy we had one algorithm carved into a privileged basis
+    of the output projection. Here the model has six Fourier modes carved into the residual stream
+    at a specific layer.
+  </p>
+
+  <h2>4. Fourier, and not just Fourier</h2>
+
+  <p>
+    The next question is whether Goodfire's six probes are the whole circuit. They are
+    not.
+  </p>
+
+  <p>
+    Project the residual stream at layer 18 onto the orthogonal complement of Goodfire's twelve
+    probe directions (six periods × sine and cosine). This removes the entire Fourier-readable
+    subspace. If the calculator lives there, counting performance should collapse. It does not. On
+    weekdays, baseline accuracy 69% drops only to 67%. On months, 66% to 62%. On addition, 92% to
+    86%. A measurable hit, but nothing close to chance.
+  </p>
+
+  <p>
+    Iterating the procedure: project out the twelve dimensions, retrain probes on the projected
+    activations, project those out too. That recovers fresh Fourier directions of comparable quality
+    for another two rounds. It takes about <strong>36 dimensions</strong>, three times Goodfire's
+    minimum basis, before our probes can no longer find Fourier-style readable counting in the
+    residual at layer 18. The first set Goodfire identified is one copy in an ensemble.
+  </p>
+
+  <p>
+    Going broader: train fresh Fourier probes at each of layers 15 through 22, ablate each layer's
+    own twelve-dimensional subspace one at a time, measure the resulting drop. Layers 15-17 carry
+    almost nothing — they're upstream of the calculator. Layers 18, 19, 20 each carry a 45-49pp
+    causal subspace. Ablate any one alone and weekday accuracy falls from 69% to about 25%. Layer
+    21 carries 32pp. Layer 22 carries 21pp. The counting circuit is distributed across at least
+    five adjacent layers, each holding its own independently ablate-able copy.
+  </p>
+
+  <figure>
+    <img src="fig2_multilayer_ablation.png" alt="Line plot of accuracy drop versus layer for single-layer ablation of Llama-3.1-8B Fourier subspace. Each of layers 18, 19, 20 carries 45–49pp causal subspace; layers 21–22 lower; layers 15–17 negligible. Country-capital control stays at zero drop everywhere.">
+    <figcaption>
+      <span class="lab">Fig. 4.</span> Per-layer single-ablation drop on Llama-3.1-8B. We trained
+      fresh 12-dim Fourier probes at each layer and zeroed out that layer's last-token activation in
+      the span of its own probes. Each of layers 18-22 carries an independently causal counting
+      subspace. Layers 15-17 carry almost nothing — the calculator forms at the L=17→L=18 boundary.
+      Country-capital control (gray) stays at zero drop everywhere, confirming the ablation is
+      counting-specific.
+    </figcaption>
+  </figure>
+
+  <p>
+    Even joint ablation across all eight layers (L=15-22), zeroing out 96 dimensions in total,
+    does not push counting accuracy to chance. On weekdays, baseline 69% drops to 29%; chance is
+    14%. On months, 83% drops to 44%, chance is 8%. There is counting capability beyond the reach
+    of any Fourier-style linear probe — non-Fourier circuits, or counting carried by other periods
+    we didn't probe, or by layers we didn't ablate, or all of the above.
+  </p>
+
+  <p>
+    So the calculator is not one circuit. It is a multi-layer ensemble of redundant Fourier copies
+    plus non-Fourier fallbacks. Roughly: probe-readable Fourier counting occupies on the order of
+    40-50 dimensions of the 4096-dim residual stream, and at least that much again is present in
+    forms our probes cannot read.
+  </p>
+
+  <h2>5. The meta-algorithm</h2>
+
+  <p>
+    The toy from Part 1 was already a redundant ensemble. The toy used six to seven universal Fourier frequencies
+    (cross-seed: <code>k = 11, 19, 25, 35, 44, 48</code>), and the same frequency set appeared in
+    several weight matrices at once: in <code>W_E</code> composed with the V projections, in the
+    FFN1-mid neurons, in the residual stream at the eq position, and in <code>W_U</code>. Each
+    frequency was carried by roughly 150 of the 1,536 FFN1 neurons. Steering on a single frequency
+    alone (just <code>k = 11</code>) hit only 1.7% of the time. No one frequency was sufficient. The
+    seven of them together gave the algorithm. The toy was multi-frequency, distributed across
+    locations, and within-location redundant. The differences with Llama are not whether redundancy
+    exists, but where it lives and what it is for.
+  </p>
+
+  <p>
+    Llama is different in two ways at once. First, instead of one algorithm per task, it builds
+    <em>one shared counting circuit</em> and uses it for every task that needs counting:
+    arithmetic, weekdays, months, hours, possibly clock times and calendar offsets and any other
+    discrete cyclic concept that lives in the training data. The six base-10 periods are not
+    weekday-specific or month-specific, they are a generic integer-encoding system that the
+    downstream layers can read for whatever they need to count. That is what we mean by a
+    meta-algorithm: not a task-specific solution, but a primitive that several tasks consume.
+  </p>
+
+  <figure>
+    <img src="anim_six_clocks_addition.gif" alt="Animation showing the six base-10 clocks of period T equal to 2, 5, 10, 20, 50 and 100 computing 6 + 8 = 14. First a hand sweeps to 6 mod T on each clock, then a second hand to 8 mod T, then an orange sum hand sweeps to 14 mod T. The final readout shows that the six residues identify 14 uniquely.">
+    <figcaption>
+      <span class="lab">Fig. 5.</span> The six base-10 clocks at L=18, computing
+      <code>6 + 8 = 14</code>. Each clock encodes one number as a rotation, and addition acts as a
+      rotation in every clock at once. The six final residues — <code>0, 4, 4, 14, 14, 14</code> —
+      together identify <code>14</code> uniquely in <code>[0, 100)</code>. Same Chinese-remainder
+      redundancy principle the toy used with its twelve dlog circles in
+      <a href="../fourier-bloom/">Part 1</a>, just with base-10 periods instead of
+      task-specific frequencies.
+    </figcaption>
+  </figure>
+
+  <p>
+    Second, Llama has more places to put the redundancy. The same circuit is replicated as
+    multiple copies <em>within</em> the residual at layer 18, replicated again across layers 18-22
+    as independent causal copies, and shadowed by non-Fourier circuitry that survives even when
+    every Fourier-readable direction has been removed. The toy did the analogous thing at a
+    smaller scale: redundancy distributed across weight matrices and across FFN1 neurons of its
+    two layers. Llama has 32 layers worth of depth to insure across, plus the non-Fourier
+    fallbacks. Same insurance principle, more room to apply it.
+  </p>
+
+  <div class="reframe">
+    The bridge is at the algorithm-motif level, not at the specific-circles level. The toy's twelve
+    dlog-mod-97 circles are not in Llama. Llama's six base-10 circles are not in the toy. What
+    transfers is the kind of object that gets built: multi-frequency sin/cos pairs that encode an
+    integer as a rotation, multiple frequencies giving a Chinese-remainder-style decoding, with
+    extensive in-residual and cross-layer redundancy at scale. The toy is the same animal,
+    photographed under a microscope.
+  </div>
+
+  <h2>6. Control: two kinds</h2>
+
+  <p>
+    The interesting question is whether all this internal structure lets you control the model
+    cleanly. In the toy the answer was an unambiguous yes. Steering on the residual manifold: 
+    replace the eq-position residual with <code>M[c]</code>, the mean residual for the target
+    class - hit 100% on every delta in every seed. Multi-mode Fourier rotation across the seven
+    universal modes hit 95-100%. Chord walking <code>h + (M[c+k] − M[c])</code> hit 100% across
+    all tested deltas. Whatever method you reached for in the toy, you got the model to say what
+    you wanted.
+  </p>
+
+  <p>
+    On Llama, the equivalent move is fragile. Take the Goodfire rotation method that worked at
+    60-65% as a single-layer intervention at layer 18, and try the obvious scale-up: apply the same
+    rotation at all of layers 18-22 simultaneously. The premise sounds reasonable. We just showed
+    each of those five layers carries its own copy of the calculator; updating each one in concert
+    toward the same target ought to give cleaner control, not worse. But it collapses instead. 
+    On the native addition task, hit rate drifts down mildly. On the
+    cross-task targets, it falls off a cliff: weekday hit rate goes from 44% (single-layer) to 6%
+    (five-layer), months from 60% to 0%. The reason is amplitude. Goodfire's
+    <code>α = 10</code> radius scaling was tuned for one layer. Applied to five layers in
+    sequence, the total perturbation in the residual stream becomes ten times the amplitude the
+    model has ever seen in training. Downstream attention and FFN computations receive activations
+    far outside their training distribution and produce nothing coherent.
+  </p>
+
+  <figure>
+    <img src="anim_multilayer_catastrophe.gif" alt="Animation cycling through four steering configurations: L=18 only, L=18-19, L=18-20, and L=18-22. On the left a vertical layer stack highlights the currently steered layers. On the right three bars show mean hit rate for addition, weekdays, and months. Addition stays around 0.6 across all four phases. Weekdays falls from 0.44 to 0.06, months from 0.61 to 0.00.">
+    <figcaption>
+      <span class="lab">Fig. 6.</span> Multi-layer Fourier rotation at Goodfire's <code>α = 10</code>
+      per layer. Addition (probes' native task) degrades mildly. Cross-task weekdays and months
+      collapse to near zero by three layers and stay there at five. The model's downstream pipeline
+      cannot reconcile a residual stream perturbed ten times beyond its training distribution; it
+      stops producing day or month tokens at all.
+    </figcaption>
+  </figure>
+
+  <p>
+    There is a sweet spot. Sweep <code>α</code> at a single layer and the peak isn't 10. For
+    weekday targets it's <code>α = 5</code>, with hit rate 65% (vs 45% at the published default).
+    For months, again <code>α = 5</code>, hit rate 79% (vs 66% at default). Above 10 every metric
+    falls. By <code>α = 20</code> cross-task is near chance. The control surface around the
+    rotation method is a narrow ridge.
+  </p>
+
+  <figure>
+    <img src="fig5_alpha_sweep.png" alt="Two-panel plot. Left: single-layer α-sweep at L=18 shows peak hit rate at α=5 for all three tasks, falling on both sides. Right: distributed budget at total=10 — addition improves with distribution, cross-task degrades.">
+    <figcaption>
+      <span class="lab">Fig. 7.</span> Left: single-layer α-sweep at L=18. The published
+      <code>α = 10</code> over-shoots cross-task; the peak is at <code>α = 5</code>. Right:
+      distributing the same total perturbation budget across more layers helps the native task but
+      hurts the cross-task ones. The optimal control topology is task-dependent and surprisingly
+      narrow.
+    </figcaption>
+  </figure>
+
+  <p>
+    There is a second method, from Goodfire's
+    <a href="https://arxiv.org/abs/2605.05115">manifold-steering paper</a>. Instead of
+    constructing a target by rotating in twelve probe directions, build the activation manifold
+    explicitly from the centroids of known classes — <code>M[Monday]</code>,
+    <code>M[Tuesday]</code>, and so on, each one the mean of residuals from prompts the model
+    correctly answered with that day. Then walk that manifold: interpolate between two centroids
+    along the curve, evaluate the model at fifty intermediate points, observe the trajectory of
+    its output distribution over days.
+  </p>
+
+  <p>
+    This works. We reproduced it. Walking from <code>M[Monday]</code> to <code>M[Friday]</code>
+    along the day-centroid spline at layer 18 produces a smooth, ordered transition through
+    Tuesday, Wednesday, and Thursday in the model's output distribution. Each intermediate day
+    rises and falls at the right point in the trajectory. The straight line from
+    <code>M[Monday]</code> to <code>M[Friday]</code> in 4096-d Euclidean space does not. At the
+    midpoint of the linear path, the model decodes the activation as <em>Sunday</em>, which is
+    not on the path at all. The cyclic manifold curves in a way that linear interpolation cuts
+    through regions where the model has learned the activation as a different day.
+  </p>
+
+  <figure>
+    <img src="anim_manifold_vs_linear.gif" alt="Animation of 50 walk steps from M[Monday] to M[Friday] at L=18. Top panel: P(day) bars under manifold walking — the target day's bar (teal) cleanly dominates at each step, handing off in order Mon, Tue, Wed, Thu, Fri. Bottom panel: P(day) bars under linear interpolation — for the middle steps the argmax bar shifts to Sunday (rust), not the target day. The two trajectories run in lockstep but produce different model outputs.">
+    <figcaption>
+      <span class="lab">Fig. 8.</span> Manifold walking (top) vs linear interpolation (bottom) at
+      L=18, sweeping 50 points from <code>M[Monday]</code> to <code>M[Friday]</code>. The manifold
+      path produces a clean ordered handoff through the five days. The linear path teleports
+      through Sunday at the midpoint because the day centroids form a curve in 4096-d, not a
+      straight line. Same residual stream, same 50 interpolated points — only the interpolation
+      geometry differs.
+    </figcaption>
+  </figure>
+
+  <p>
+    The reason this works is mechanical: each interpolation point on the manifold path is
+    essentially a dictation. We replace the layer-18 last-token activation with a point close to a
+    real, observed activation that the model produces during normal forward passes when the answer
+    is that intermediate day. The downstream layers receive a state they recognise. They produce
+    the answer that state corresponds to. There is no out-of-distribution shock to break the
+    pipeline.
+  </p>
+
+  <h2>7. What this picture says</h2>
+
+  <p>
+    First, the algorithm-formation framing from the toy carries over. Real LLMs trained on web text
+    contain multi-frequency Fourier counting circuits of the same mathematical kind that gradient
+    descent forms in a two-layer transformer. The toy is not a toy in the dismissive sense, it is a
+    legible version of the same animal.
+  </p>
+
+  <p>
+    Second, the bigger model insures the circuit. Where the toy used one canonical implementation,
+    Llama uses at least three in-residual copies stacked together at layer 18, plus near-independent
+    copies across the next four layers, plus non-Fourier circuitry our probes can't see. The model
+    behaves as if redundancy is cheap and worth paying for. This is a property of scale, not of
+    the algorithm. The same Fourier motif can be replicated many times because the residual stream
+    has dimensions to spare.
+  </p>
+
+  <p>
+    Third, and the most interesting for anyone hoping to use interpretability for control: the
+    toy's permissive control surface does not transfer. In the toy any reasonable intervention
+    worked at near-100%. On Llama, the most natural scale-up of the most cleanly identified
+    intervention (rotation across all the layers that carry the circuit)
+    destroys the model's ability to answer at all. The right intervention is gentler than that. It
+    walks along observed activations, not through made-up ones, and its strength is dictated by
+    what the model has actually seen during training. Goodfire's manifold-steering method is, as
+    far as we can tell, that gentler intervention done correctly. The aggressive version of the
+    same idea, applied at the same site, breaks the model.
+  </p>
+
+  <p>
+    This is the lesson the toy could not have taught. In a small enough model with a single enough
+    task, you can steer with anything. In a large model with many circuits sharing a residual
+    stream, you have to respect the geometry the model actually uses, and the difference between
+    "respects the geometry" and "ignores the geometry" is the difference between Goodfire's
+    smooth walk and our catastrophic collapse.
+  </p>
+
+  <h2>8. What we did not test</h2>
+
+  <p>
+    We restricted ourselves to one model (Llama-3.1-8B), one set of cyclic counting tasks
+    (weekdays, months, addition, hours), and Goodfire's specific probe family. The same structural
+    picture probably exists in other open models — we have preliminary evidence that Qwen-2.5-7B
+    has a partial version of the same calculator, with strong probes only for
+    <code>T = 2</code> and <code>T = 100</code> — but we did not characterise it at the level of
+    detail we used here for Llama.
+  </p>
+
+  <p>
+    We also did not test whether the meta-algorithm idea extends to non-counting circuits. There
+    presumably is, somewhere in Llama, a "list-the-letters" circuit and a "name-the-capital"
+    circuit and many others. Whether they too are redundant ensembles distributed across multiple
+    layers, whether they too admit manifold walking and refuse aggressive control, is an open
+    question. We expect the same shape, but we don't know.
+  </p>
+
+  <p>
+    What we feel confident saying, having gone through the experiments, is that the work of
+    Goodfire on Llama is the right shape of result, the toy's algorithmic-manifold framing is the
+    right framing for understanding what they found, and the gap between toy-style and LLM-style
+    control is a real and mechanically-grounded gap rather than a methodological accident. The
+    bigger model carries the same kind of algorithm, hidden across many redundant locations, and
+    the only intervention that handles it cleanly is one that stays inside the part of activation
+    space the model actually inhabits.
+  </p>
+
+  <h2>9. Reproduce</h2>
+
+  <p>
+    <strong>Everything that produced the figures and animations on this page is in the
+    repository</strong> (links open the file on GitHub):
+  </p>
+  <ul>
+    <li><a href="https://github.com/nick-yudin/manifold_features/blob/main/algorithms-in-real-LLMs/notebooks/toy_algorithms_absence.ipynb"><code>notebooks/toy_algorithms_absence.ipynb</code></a>
+        — for P ∈ {3, 5, 7, 11, 13, 23, 97}: build <code>(a, b, c = a·b⁻¹ mod P)</code>
+        triples, fit natural-basis and dlog-basis Fourier probes on L=18 residuals.
+        Produces Fig. 2.</li>
+    <li><a href="https://github.com/nick-yudin/manifold_features/blob/main/algorithms-in-real-LLMs/notebooks/goodfire_replication.ipynb"><code>notebooks/goodfire_replication.ipynb</code></a>
+        — replicates Goodfire's six-clock base-10 calculator at L=18; Fourier rotation
+        steering on weekday and month Q/A; caches per-class centroids consumed by the
+        manifold-walking notebook. Produces Fig. 3 and the six-clock animation (Fig. 5).</li>
+    <li><a href="https://github.com/nick-yudin/manifold_features/blob/main/algorithms-in-real-LLMs/notebooks/multilayer_ablation.ipynb"><code>notebooks/multilayer_ablation.ipynb</code></a>
+        — single-layer ablation of the 12-dimensional Fourier subspace across layers
+        15-22; country-capital control. Produces Fig. 4.</li>
+    <li><a href="https://github.com/nick-yudin/manifold_features/blob/main/algorithms-in-real-LLMs/notebooks/manifold_walking.ipynb"><code>notebooks/manifold_walking.ipynb</code></a>
+        — the main positive result. 50-step centroid walk along <code>M[Monday] →
+        M[Friday]</code> at L=18; α sweep; multi-layer steering catastrophe. Produces
+        Figs. 6, 7, 8 and the manifold-walk hero animation.</li>
+    <li><a href="https://github.com/nick-yudin/manifold_features/tree/main/algorithms-in-real-LLMs/data"><code>data/</code></a>
+        — JSON / NPY summaries consumed by this page: walk trajectories, ablation drops,
+        steering hit rates, α-sweep results, modular-division probe quality.</li>
+  </ul>
+  <p>
+    The notebooks pull the gated <code>meta-llama/Llama-3.1-8B</code> checkpoint from the Hub
+    (you need an access token with the model agreement accepted) and write outputs to
+    <code>./out/</code>. Each notebook has a <code>RECOMPUTE</code> flag — set it to
+    <code>False</code> to skip the GPU pass and replot from the bundled <code>data/</code> JSON.
+  </p>
+
+  <footer>
+    <p>
+      Companion notebooks for this part: replication of Goodfire's six-clock calculator and rotation steering
+      (<code>exp_plan7h_notebook15</code>); single-set, iterative, and multi-layer ablation
+      (<code>16</code>, <code>17</code>, <code>19</code>); aggressive multi-layer steering and α-sweep
+      (<code>20</code>, <code>21</code>); manifold walking replication (<code>22</code>).
+      Code at <a href="https://github.com/nick-yudin">github.com/nick-yudin</a>.
+    </p>
+    <p>
+      Goodfire's papers: <a href="https://arxiv.org/abs/2605.01148">Arithmetic in the Wild</a>
+      (the six-clock calculator and Fourier rotation steering) and
+      <a href="https://arxiv.org/abs/2605.05115">Manifold Steering</a> (centroid interpolation,
+      pullback, and Mountain Car world model).
+    </p>
+    <p>
+      Series: <a href="../fourier-bloom/">Part 1 · Single algorithm</a> ·
+      <a href="../four-algorithms/">Part 2 · Four algorithms</a> ·
+      <a href="../grokking/">Part 3 · Grokking</a> ·
+      <span style="border-bottom: 1px solid var(--accent);">Part 4 · Algorithms in real LLMs</span>.
+    </p>
+  </footer>
+
+</article>
+
+</body>
+</html>

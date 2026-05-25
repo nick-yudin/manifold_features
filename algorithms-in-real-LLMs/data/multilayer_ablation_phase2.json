@@ -1,0 +1,73 @@
+{
+  "baseline": {
+    "addition": 0.9236111111111112,
+    "weekdays": 0.6938775510204082,
+    "months": 0.8263888888888888,
+    "country_capital": 0.7692307692307693
+  },
+  "L18 only": {
+    "layers": [
+      18
+    ],
+    "n_layers": 1,
+    "dim_total": 12,
+    "accs": {
+      "addition": 0.4722222222222222,
+      "weekdays": 0.3469387755102041,
+      "months": 0.5625,
+      "country_capital": 0.7692307692307693
+    }
+  },
+  "L17-19 (3 layers)": {
+    "layers": [
+      17,
+      18,
+      19
+    ],
+    "n_layers": 3,
+    "dim_total": 36,
+    "accs": {
+      "addition": 0.4236111111111111,
+      "weekdays": 0.30612244897959184,
+      "months": 0.5208333333333334,
+      "country_capital": 0.7692307692307693
+    }
+  },
+  "L16-20 (5 layers)": {
+    "layers": [
+      16,
+      17,
+      18,
+      19,
+      20
+    ],
+    "n_layers": 5,
+    "dim_total": 60,
+    "accs": {
+      "addition": 0.3680555555555556,
+      "weekdays": 0.2857142857142857,
+      "months": 0.4583333333333333,
+      "country_capital": 0.7692307692307693
+    }
+  },
+  "L15-22 (8 layers)": {
+    "layers": [
+      15,
+      16,
+      17,
+      18,
+      19,
+      20,
+      21,
+      22
+    ],
+    "n_layers": 8,
+    "dim_total": 96,
+    "accs": {
+      "addition": 0.22916666666666666,
+      "weekdays": 0.2857142857142857,
+      "months": 0.4375,
+      "country_capital": 0.7692307692307693
+    }
+  }
+}
