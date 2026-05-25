@@ -13,7 +13,7 @@ A series of interactive longform notes on how small transformers grow algorithms
 | Part 1 | [Inside the grokked manifold of mod-97 division](fourier-bloom/) — observe, build, steer | published | [open](https://nick-yudin.github.io/manifold_features/fourier-bloom/) |
 | Part 2 | [Four algorithms in one tiny brain](four-algorithms/) — div, add, max, parity in one shared head | published | [open](https://nick-yudin.github.io/manifold_features/four-algorithms/) |
 | Part 3 | Grokking, in general | coming | — |
-| Part 4 | [Algorithms in a real LLM (Llama 3.1 8B)](algorithms-in-real-LLMs/) | coming | — |
+| Part 4 | [Algorithms in a real LLM (Llama 3.1 8B)](algorithms-in-real-LLMs/) | published | [open](https://nick-yudin.github.io/manifold_features/algorithms-in-real-LLMs/) |
 
 ## Repository layout
 
@@ -36,7 +36,12 @@ manifold_features/
 │   └── README.md          per-section guide
 └── algorithms-in-real-LLMs/  Part 4 — Llama 3.1 8B at scale
     ├── index.html         long-form note
-    ├── fig0–fig5*.png     inline figures
+    ├── fig0–fig5*.png     inline figures (paper-beige palette)
+    ├── algorithms_in_real_llms_hero.gif        manifold-walk hero animation
+    ├── anim_six_clocks_addition.gif            six-clock computation animation
+    ├── anim_manifold_vs_linear.gif             manifold walk vs linear chord
+    ├── anim_multilayer_catastrophe.gif         multi-layer steering catastrophe
+    ├── data/              bundled JSON / NPY summaries
     ├── notebooks/         four standalone Jupyter notebooks
     └── README.md          per-section guide
 ```
@@ -49,6 +54,7 @@ Quick starts:
 
 - **Part 1** — `pip install torch && python fourier-bloom/verify_handcrafted.py` prints `9216/9216 correct = 100.0000%` in under a minute. No training, no GPU.
 - **Part 2** — open [`four-algorithms/notebooks/walk_and_dictation.ipynb`](four-algorithms/notebooks/walk_and_dictation.ipynb) in Colab. It pulls a trained 4-task checkpoint from the Hub and reproduces the steering numbers in a few minutes.
+- **Part 4** — open [`algorithms-in-real-LLMs/notebooks/manifold_walking.ipynb`](algorithms-in-real-LLMs/notebooks/manifold_walking.ipynb) in Colab on an A100. Pulls `meta-llama/Llama-3.1-8B` (gated; needs an HF token with the model agreement accepted) and reproduces the manifold-walk, α-sweep, and multi-layer-catastrophe figures. Set `RECOMPUTE = False` to skip the GPU pass and replot from bundled JSON.
 
 ## Headline claims
 
@@ -58,7 +64,7 @@ Quick starts:
 
 **Part 3 (coming).** What the geometry says about grokking as a phenomenon — what the gauge is across seeds, what is and isn't a "true" learned algorithm, how this reframes the memorization/generalization story.
 
-**Part 4 (coming).** **Algorithms in a real LLM.** Llama 3.1 8B already runs Goodfire's six-clock base-10 calculator at L=18 and uses it as a *meta-algorithm* serving arithmetic, weekdays, months, and hours through one shared circuit. Three layers of redundancy (within-residual, multi-layer, beyond-Fourier). Single-layer manifold walking through centroids at L=18 reaches 60-65% hit rate on cross-task targets and beats both Goodfire's α=10 default and the linear-chord baseline.
+**Part 4.** **Algorithms in a real LLM.** Llama 3.1 8B already runs Goodfire's six-clock base-10 calculator at L=18 and uses it as a *meta-algorithm* serving arithmetic, weekdays, months, and hours through one shared circuit. Three layers of redundancy (within-residual, multi-layer, beyond-Fourier). Single-layer manifold walking through centroids at L=18 reaches 60-65% hit rate on cross-task targets and beats both Goodfire's α=10 default and the linear-chord baseline. The toy's dlog-Fourier circles do *not* transfer — same algorithmic motif, different specific frequencies (task-specific dlog in the toy, base-10 in Llama).
 
 ## Citation
 
